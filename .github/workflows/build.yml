@@ -1,0 +1,35 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build (${{ matrix.os }}, JDK ${{ matrix.java }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        java: ["21", "25"]
+        include:
+          - os: windows-latest
+            java: "25"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+      - uses: gradle/actions/setup-gradle@v6
+      - run: ./gradlew build
+      - name: M0 exit check
+        shell: bash
+        run: |
+          ./gradlew :cellerity-cli:installDist
+          test "$(cellerity-cli/build/install/cellerity/bin/cellerity eval corpus/samples/synthetic/sample.xlsx --get 'Sheet1!A1' | tr -d '\r')" = "42"

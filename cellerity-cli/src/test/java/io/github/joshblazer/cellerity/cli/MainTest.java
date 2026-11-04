@@ -33,6 +33,7 @@ class MainTest {
   @ParameterizedTest(name = "--get {0} prints [{1}]")
   @CsvSource(
       delimiter = '|',
+      quoteCharacter = '"',
       value = {
         "Sheet1!A1|42", // M0 exit check
         "sheet1!a1|42",

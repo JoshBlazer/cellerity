@@ -30,7 +30,6 @@ tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
     options.compilerArgs.addAll(listOf("-Xlint:all,-processing,-serial", "-Werror"))
     options.errorprone.disableWarningsInGeneratedCode = true
-    options.errorprone.disable("DoNotCallSuggester") // Temporary: M0 stubs always throw.
 }
 
 tasks.withType<Test>().configureEach {

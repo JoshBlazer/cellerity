@@ -23,7 +23,7 @@ class CorpusLoadTest {
     assertEquals(1, r.loaded());
     assertEquals(0, r.crashed());
     assertEquals(2, r.sheets());
-    assertEquals(9, r.cells());
+    assertEquals(10, r.cells());
     assertEquals(2, r.formulaCells());
     assertEquals(2, r.formulaCellsWithCachedValue());
     assertEquals(3, r.definedNames());

@@ -56,6 +56,8 @@ final class Baseline {
     ok &= atLeast("minFormulaCells", (double) result.parse().formulaCells());
     ok &= atLeast("minParseRate", result.parse().rate());
     ok &= atMost("maxRoundTripFailures", (double) result.parse().roundTripFailures());
+    ok &= atMost("maxCrashed", result.crashed());
+    ok &= atLeast("minDataTables", (double) result.parse().dataTables());
     return ok;
   }
 }

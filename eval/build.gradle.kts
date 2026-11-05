@@ -16,7 +16,10 @@ application {
 }
 
 // Run from the repository root so corpus and result paths in arguments are stable.
-tasks.named<JavaExec>("run") { workingDir = rootDir }
+tasks.named<JavaExec>("run") {
+    workingDir = rootDir
+    maxHeapSize = "2g"
+}
 
 // Compares what our reader stores with what Apache POI reads from the same files.
 tasks.register<JavaExec>("crossCheck") {

@@ -21,7 +21,7 @@ public final class FormulaPrinter {
       case Expr.Missing m -> "";
       case Expr.Cell c -> scope(c.scope()) + endpoint(c.at());
       case Expr.Area a -> scope(a.scope()) + endpoint(a.from()) + ":" + endpoint(a.to());
-      case Expr.BrokenRef r -> scope(r.scope()) + "#REF!";
+      case Expr.BrokenRef r -> scope(r.scope()) + "#REF!" + r.tail();
       case Expr.Name n -> scope(n.scope()) + n.name();
       case Expr.Structured s -> s.text();
       case Expr.Call c ->

@@ -16,6 +16,9 @@ final class Lexer {
       Pattern.compile("(\\$?)([A-Za-z]{1,3}):(\\$?)([A-Za-z]{1,3})");
   private static final Pattern WHOLE_ROWS = Pattern.compile("(\\$?)(\\d{1,7}):(\\$?)(\\d{1,7})");
   private static final Pattern CELL = Pattern.compile("(\\$?)([A-Za-z]{1,3})(\\$?)(\\d{1,7})");
+  private static final Pattern DELETED_SHEET_ADDRESS =
+      Pattern.compile("\\$?[A-Za-z]{1,3}\\$?\\d+(:\\$?[A-Za-z]{1,3}\\$?\\d+)?(?![A-Za-z0-9_.])");
+
   private static final List<ExcelError> ERRORS_LONGEST_FIRST =
       Arrays.stream(ExcelError.values())
           .sorted(Comparator.comparingInt((ExcelError e) -> -e.code().length()))
@@ -161,8 +164,37 @@ final class Lexer {
     add(Token.Kind.BAD, start);
   }
 
+  /** Lexes {@code #REF!B7}, which Excel writes after the referenced sheet is deleted. */
+  private boolean deletedSheetReference() {
+    if (!text.startsWith("#REF!", pos)) {
+      return false;
+    }
+    Matcher address =
+        DELETED_SHEET_ADDRESS.matcher(text).region(pos + "#REF!".length(), text.length());
+    if (!address.lookingAt()) {
+      return false;
+    }
+    int start = pos;
+    pos = address.end();
+    tokens.add(
+        new Token(
+            Token.Kind.BROKEN_REF,
+            address.group(),
+            new Span(start, pos),
+            space,
+            0,
+            null,
+            Expr.Scope.NONE,
+            null,
+            null));
+    return true;
+  }
+
   private void errorLiteral() {
     int start = pos;
+    if (deletedSheetReference()) {
+      return;
+    }
     for (ExcelError error : ERRORS_LONGEST_FIRST) {
       if (text.startsWith(error.code(), pos)) {
         pos += error.code().length();
@@ -376,7 +408,9 @@ final class Lexer {
     scopeStart = start;
     if (text.startsWith("#REF!", pos)) {
       pos += "#REF!".length();
-      addScoped(Token.Kind.BROKEN_REF, start, scope, null, null);
+      tokens.add(
+          new Token(
+              Token.Kind.BROKEN_REF, "", new Span(start, pos), space, 0, null, scope, null, null));
     } else if (!wholeColumns(pos, scope) && !wholeRows(pos, scope)) {
       int end = runEnd(pos);
       String run = text.substring(pos, end);

@@ -9,7 +9,12 @@ import java.util.Set;
 
 /** Parses formula text. Never throws on any input. See {@code docs/design/parser.md}. */
 public final class FormulaParser {
-  private static final int MAX_DEPTH = 512;
+  /**
+   * Excel allows 64 nested function levels. Each level here is about 15 stack frames, so this bound
+   * must stay well inside a default 1 MB stack. At 512 it overflowed intermittently.
+   */
+  private static final int MAX_DEPTH = 128;
+
   private static final Set<Token.Kind> STARTS_REFERENCE =
       Set.of(
           Token.Kind.CELL,
@@ -35,7 +40,14 @@ public final class FormulaParser {
 
   /** Parses a formula. Problems are returned as diagnostics, with recovery. */
   public static ParseResult parse(String text) {
-    return new FormulaParser(text).parseFormula();
+    try {
+      return new FormulaParser(text).parseFormula();
+    } catch (StackOverflowError e) {
+      // Formula text is untrusted, and a caller's thread may have a small stack.
+      return new ParseResult(
+          new Expr.Invalid(text, Span.NONE),
+          List.of(new Diagnostic("Formula is too deeply nested", Span.NONE)));
+    }
   }
 
   private ParseResult parseFormula() {
@@ -257,7 +269,7 @@ public final class FormulaParser {
       }
       case BROKEN_REF -> {
         advance();
-        return new Expr.BrokenRef(token.scope(), token.span());
+        return new Expr.BrokenRef(token.scope(), token.text(), token.span());
       }
       case STRUCTURED -> {
         advance();

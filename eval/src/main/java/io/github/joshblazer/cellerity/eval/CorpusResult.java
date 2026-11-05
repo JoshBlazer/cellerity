@@ -81,10 +81,12 @@ record CorpusResult(
         + parse.functionCalls()
         + ",\n  \"functionsRanked\": {\n"
         + ranked
-        + "\n  },\n";
+        + "\n  },\n  \"filesUsingFunction\": "
+        + counts(parse.filesUsing())
+        + ",\n";
   }
 
-  private static String counts(Map<String, Integer> counts) {
+  private static String counts(Map<String, ? extends Number> counts) {
     return new TreeMap<>(counts)
         .entrySet().stream()
             .map(e -> quote(e.getKey()) + ": " + e.getValue())

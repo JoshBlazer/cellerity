@@ -18,11 +18,11 @@ jobs:
           distribution: temurin
           java-version: "25"
       - uses: gradle/actions/setup-gradle@v6
-      # Fails if any corpus file crashes the reader or fails its checksum.
+      # Fails if a file crashes the reader or fails its checksum, or a metric drops below its baseline.
       - run: make eval
       # Fails on any disagreement with POI, low coverage, or a modified corpus file.
       - run: make crosscheck
       - uses: actions/upload-artifact@v7
         with:
           name: corpus-load
-          path: eval/results/latest-corpus-load.json
+          path: eval/results/latest-*.json

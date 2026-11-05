@@ -52,7 +52,7 @@ printing does not change meaning or form.
 `FormulaParser.parse` never throws on any input. It returns the tree it could build, with `Invalid` nodes
 at failures and a `Diagnostic` per problem, each with a precise `Span`. After an error, the parser skips to
 the next `,`, `)`, or end of input and carries on, so one formula can report several problems. Nesting
-deeper than 512 levels is a diagnostic rather than a stack overflow.
+deeper than 128 levels is a diagnostic rather than a stack overflow.
 
 ## Shared formulas
 

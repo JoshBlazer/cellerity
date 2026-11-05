@@ -263,7 +263,7 @@ reject it, even though row 1 is the likely meaning.
 
 ## ADR-0013: Real-world corpus is cleaned Enron, read with POI HSSF inside `eval/` only
 
-**Status:** Accepted (maintainer decision, 2026-11-05). Not implemented yet; needed before M2.
+**Status:** Accepted (maintainer decision, 2026-11-05). Implemented in M1.
 
 **Context.** ADR-0008 found that Enron is entirely `.xls`, and listed three options.
 
@@ -283,6 +283,10 @@ not.
   on this corpus therefore partly measure POI's rendering, and reports must say so.
 - The mirror says some files are TSV, SYLK, HTML, or BIFF2 despite the extension. These will be counted
   and reported as unreadable rather than ignored.
-- The size of the Nuix subset and how many files have Excel as their writer are not yet measured.
+- Measured in M1: 616 files, of which 452 load (404 say Excel, 48 state no writer) and 164 do not (141 are
+  not OLE2, 23 predate BIFF8). The 2.0 million cells include 831,499 formula cells.
+- POI's usermodel throws on data-table cells, so `eval/` reads them from raw `TABLE` records.
+- File names in the manifest include mailbox names, as they do on the public mirror. They are needed to
+  fetch each file. Committed results drop file and sheet names.
 - Fidelity on this corpus can differ from `.xlsx`-native behaviour, so results are reported per corpus.
 

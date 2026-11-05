@@ -104,7 +104,7 @@ public final class CorpusLoad {
       for (Path root : roots) {
         for (Path file : workbooksUnder(root)) {
           String label = root.relativize(file).toString().replace('\\', '/');
-          Future<Workbook> load = executor.submit(() -> XlsxReader.read(file));
+          Future<Workbook> load = executor.submit(() -> readAny(file));
           try {
             tally.loaded(load.get(perFileTimeout.toMillis(), TimeUnit.MILLISECONDS));
           } catch (ExecutionException e) {
@@ -130,6 +130,11 @@ public final class CorpusLoad {
     return tally.result();
   }
 
+  private static Workbook readAny(Path file) throws XlsxReadException {
+    String name = file.getFileName().toString().toLowerCase(Locale.ROOT);
+    return name.endsWith(".xls") ? HssfWorkbooks.read(file) : XlsxReader.read(file);
+  }
+
   private static ExecutorService daemonExecutor() {
     return Executors.newSingleThreadExecutor(task -> {
       Thread thread = new Thread(null, task, "corpus-load");
@@ -153,7 +158,7 @@ public final class CorpusLoad {
 
   private static boolean isWorkbookName(Path file) {
     String name = file.getFileName().toString().toLowerCase(Locale.ROOT);
-    return name.endsWith(".xlsx") || name.endsWith(".xlsm");
+    return name.endsWith(".xlsx") || name.endsWith(".xlsm") || name.endsWith(".xls");
   }
 
   private static final class Tally {

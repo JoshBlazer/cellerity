@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Downloads every file in corpus/manifest.tsv into corpus/downloads/ and verifies its checksum.
+# Downloads every file in the corpus manifests into corpus/downloads/ and verifies its checksum.
 # Files that already verify are skipped. A file that fails verification is deleted, and the script
 # exits non-zero. Downloaded files are data only: nothing in them is ever executed.
 set -euo pipefail
@@ -15,7 +15,9 @@ sha256() { if command -v sha256sum >/dev/null; then sha256sum "$1"; else shasum 
 
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
-tail -n +2 "$root/manifest.tsv" | tr -d '\r' > "$work/entries.tsv"
+for manifest in "$root/manifest.tsv" "$root/enron-manifest.tsv"; do
+  tail -n +2 "$manifest" | tr -d '\r' >> "$work/entries.tsv"
+done
 
 present=0
 : > "$work/curl.cfg"

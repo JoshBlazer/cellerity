@@ -13,6 +13,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/). No version has 
 - Corpus tooling: a checksummed manifest of 353 Apache POI test files, `make eval`, and a read-only POI
   cross-check, `make crosscheck`.
 
+- Formula parser with error recovery and precise positions, printer, reference shifting, and shared-formula
+  expansion.
+- Real-world corpus tier from cleaned Enron files, parse-rate reporting, and CI regression gates.
+
 ### Not yet implemented
 
-Formula parsing and evaluation, `verify`, `coverage`, `bench`, and `api`.
+Formula evaluation, `verify`, `coverage`, `bench`, and `api`.

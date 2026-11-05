@@ -104,7 +104,7 @@ public final class Exprs {
       case Expr.Missing m -> new Expr.Missing(none);
       case Expr.Cell c -> new Expr.Cell(c.scope(), c.at(), none);
       case Expr.Area a -> new Expr.Area(a.scope(), a.from(), a.to(), none);
-      case Expr.BrokenRef r -> new Expr.BrokenRef(r.scope(), none);
+      case Expr.BrokenRef r -> new Expr.BrokenRef(r.scope(), r.tail(), none);
       case Expr.Name n -> new Expr.Name(n.scope(), n.name(), none);
       case Expr.Structured s -> new Expr.Structured(s.text(), none);
       case Expr.Invalid i -> new Expr.Invalid(i.text(), none);

@@ -12,9 +12,12 @@ import io.github.joshblazer.cellerity.formula.ParsedWorkbook;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 
 /** Parse results across a corpus. Each cell counts once, so shared formulas count per cell. */
 final class ParseStats {
@@ -27,17 +30,20 @@ final class ParseStats {
   private long roundTripFailures;
   private long functionCalls;
   private final Map<String, Long> functions = new HashMap<>();
+  private final Map<String, Long> functionFiles = new HashMap<>();
   private final List<String> failureExamples = new ArrayList<>();
 
   void add(ParsedWorkbook workbook) {
+    Set<String> used = new HashSet<>();
     for (int sheet = 0; sheet < workbook.workbook().sheets().size(); sheet++) {
       for (Map.Entry<CellRef, ParsedFormula> entry : workbook.formulas(sheet).entrySet()) {
-        add(entry.getValue(), workbook.workbook().sheets().get(sheet).name(), entry.getKey());
+        add(entry.getValue(), workbook.workbook().sheets().get(sheet).name(), entry.getKey(), used);
       }
     }
+    used.forEach(name -> functionFiles.merge(name, 1L, Long::sum));
   }
 
-  private void add(ParsedFormula formula, String sheet, CellRef at) {
+  private void add(ParsedFormula formula, String sheet, CellRef at, Set<String> used) {
     if (formula.kind() == ParsedFormula.Kind.DATA_TABLE) {
       dataTables++;
       return;
@@ -54,6 +60,7 @@ final class ParseStats {
     parsed++;
     for (String name : Exprs.functionNames(formula.expr())) {
       functions.merge(name, 1L, Long::sum);
+      used.add(name);
       functionCalls++;
     }
     if (!roundTrips(formula.expr())) {
@@ -99,6 +106,13 @@ final class ParseStats {
                 .thenComparing(Map.Entry.comparingByKey()))
         .forEach(e -> ranked.put(e.getKey(), e.getValue()));
     return ranked;
+  }
+
+  /**
+   * How many files call each function. One large file can dominate {@link #ranked}, but not this.
+   */
+  Map<String, Long> filesUsing() {
+    return new TreeMap<>(functionFiles);
   }
 
   long functionCalls() {

@@ -13,18 +13,6 @@ once CI is green. Work stops at each milestone end for review.
 | M5 | **Model-as-API.** Typed API generation from defined names. | Generated `PricingModel` compiles and returns the same results as `cellerity eval` |
 | M6 | **Public launch.** Fidelity and benchmark pages on GitHub Pages, README demo, write-up. | Published URLs + walkthrough |
 
-## Carried into M1
-
-- Expand shared formulas (`t="shared"` followers), using reference shifting from the parser.
-- Add parse rate to `make eval`, and make CI fail on regressions against `eval/results/`.
-- Parser scope: A1 and sheet-qualified references, ranges, defined names, all operators with Excel
-  precedence (unary minus binds tighter than `^`, so `-2^2` is `4`), percent, concatenation, and array
-  constants. Structured references and dynamic arrays come later.
-
-## Needed before M2
-
-- Build the real-world corpus tier: cleaned Enron read with POI HSSF inside `eval/` (ADR-0013).
-
 ## Later layers
 
 More functions (driven by corpus ranking), dynamic arrays and spill, `LET`/`LAMBDA`, structured

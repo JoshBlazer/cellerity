@@ -31,8 +31,14 @@ public sealed interface Expr {
   /** A rectangular area, including whole rows and columns. */
   record Area(Scope scope, Endpoint from, Endpoint to, Span span) implements Expr {}
 
-  /** A reference that is already broken, as in {@code Sheet1!#REF!}. */
-  record BrokenRef(Scope scope, Span span) implements Expr {}
+  /**
+   * A reference that is already broken, as in {@code Sheet1!#REF!}, or {@code #REF!B7} after a
+   * sheet is deleted. It evaluates to {@code #REF!} either way.
+   *
+   * @param tail the address after {@code #REF!}, kept as written so it prints back, or empty. It is
+   *     not shifted when a shared formula is expanded, since it refers to nothing.
+   */
+  record BrokenRef(Scope scope, String tail, Span span) implements Expr {}
 
   /** A defined name. */
   record Name(Scope scope, String name, Span span) implements Expr {}

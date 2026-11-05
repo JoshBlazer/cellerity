@@ -20,16 +20,19 @@ with Java 25, and runs the corpus checks on Ubuntu with Java 25.
 
 | Capability | State | Proving command |
 |---|---|---|
-| Build, formatting, static analysis, tests (160) on Java 21 and 25 | Proven | `./gradlew clean build` |
+| Build, formatting, static analysis, tests (261) on Java 21 and 25 | Proven | `./gradlew clean build` |
 | Group ID in a single build property | Proven | `git grep -n "io.github.joshblazer" -- "*.kts" "*.toml" "*.properties"` |
 | Read sheets, cells, formulas, cached values, defined names | Proven | `cellerity inspect corpus/samples/synthetic/sample.xlsx` |
 | Print a cached value (**M0 exit check**) | Proven | `cellerity eval corpus/samples/synthetic/sample.xlsx --get 'Sheet1!A1'` |
 | Corpus loads with no crashes (**M0 exit check**) | Proven | `make eval`: 358 files, 332 loaded, 26 rejected, 0 crashed |
 | Reader agrees with Apache POI on stored values and formula text | Proven | `make crosscheck`: 320 files, 1,120,879 cells, 0 disagreements |
-| Corpus integrity | Proven | `corpus/download.sh --verify-only`: 353 verified |
+| Corpus integrity | Proven | `corpus/download.sh --verify-only`: 969 verified |
 | CI green | Proven | `.github/workflows/`: `build` and `eval` |
 | **M0 complete** | **Done, pending maintainer review** | `docs/walkthroughs/m0.md` |
-| Formula parsing (M1) | Not started | |
+| Formula parsing, real-world corpus (**M1 exit check**) | Proven | `make eval`: Enron 831,391 of 831,391 and POI 27,785 of 27,785 formula cells parse, with limits in `docs/walkthroughs/m1.md` |
+| Round-trip property tests (**M1 exit check**) | Proven | `./gradlew :cellerity-formula:test` |
+| CI fails if the parse rate regresses | Proven | `make eval` with `eval/baseline-*.properties` |
+| **M1 complete** | **Done, pending maintainer review** | `docs/walkthroughs/m1.md` |
 | Formula evaluation, `verify`, `coverage`, fidelity (M2) | Not started | |
 | Incremental recalculation (M3) | Not started | |
 | Truffle runtime, benchmarks (M4) | Not started | |

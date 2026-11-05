@@ -42,7 +42,7 @@ Read this first at the start of every session. Append at the end of every sessio
 
 ### Open questions for the maintainer
 
-1. **Visibility:** the repository starts private. When should it become public?
+1. *Resolved:* the repository is public, at the maintainer's request.
 2. *Resolved:* the real-world corpus is cleaned Enron read with POI HSSF inside `eval/` (ADR-0013).
 3. **Trademarks (before M6):** two "cellerity" US filings appeared in a search and could not be opened.
 4. **Tagline:** JIT needs a GraalVM JDK, so standard-JDK teams do not get the headline speed (R7).
@@ -62,3 +62,27 @@ None.
   wrapper cache after verifying its SHA-256. `curl` fetched the same file normally, and CI is unaffected
   unless it reproduces there.
 - Never open corpus files with `new XSSFWorkbook(File)`: it writes to them on close (ADR-0011).
+
+## 2026-11-05: M1
+
+The maintainer asked for M1 to M4 without a stop at each milestone, and for the repository to be public.
+
+### Done and proven
+
+- Parser, printer, shifter, shared formulas: 261 tests pass (`./gradlew build`).
+- Enron: 831,391 of 831,391 formula cells parse, 108 data tables are excluded, 164 of 616 files are unreadable.
+- POI: 27,785 of 27,785 formula cells parse.
+- `make eval` gates each corpus against `eval/baseline-*.properties`.
+
+Limits are in `docs/walkthroughs/m1.md`.
+
+### Working notes
+
+- The machine has 16 GB and little free memory. A background job was stopped by the memory guard. Run one
+  build at a time, with `--no-daemon --max-workers=2`. The `eval` run is capped at a 2 GB heap.
+- `download.sh` starts several processes per file and failed under memory pressure on Windows. Worth batching.
+- Always give `gh` `</dev/null` and a timeout, since it can hang waiting on input here.
+
+### Next
+
+M2: reference interpreter and fidelity harness.

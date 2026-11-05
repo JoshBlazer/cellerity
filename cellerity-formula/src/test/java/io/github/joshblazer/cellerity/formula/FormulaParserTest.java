@@ -192,6 +192,24 @@ class FormulaParserTest {
     assertInstanceOf(Expr.Err.class, parse("#REF!"));
   }
 
+  /**
+   * Excel writes this after the sheet a reference pointed at is deleted. Found in the Enron set.
+   */
+  @ParameterizedTest
+  @ValueSource(strings = {"#REF!B167", "#REF!$B$7", "#REF!A1:B2", "#REF!B167/0.85*0.152"})
+  void deletedSheetReferencesRoundTrip(String text) {
+    ParseResult result = FormulaParser.parse(text);
+    assertTrue(result.ok(), () -> text + " " + result.diagnostics());
+    assertEquals(text, FormulaPrinter.print(result.expr()));
+    assertTrue(Exprs.any(result.expr(), Expr.BrokenRef.class::isInstance));
+  }
+
+  @Test
+  void deletedSheetReferenceNeedsAWholeCellAddress() {
+    assertFalse(FormulaParser.parse("#REF!B").ok());
+    assertFalse(FormulaParser.parse("#REF!B7x").ok());
+  }
+
   @ParameterizedTest
   @ValueSource(
       strings = {
@@ -336,6 +354,23 @@ class FormulaParserTest {
   void excessiveNestingIsADiagnosticNotACrash() {
     String deep = "(".repeat(100_000) + "1" + ")".repeat(100_000);
     assertFalse(FormulaParser.parse(deep).ok());
+  }
+
+  @Test
+  void nestingBeyondExcelsOwnLimitStillParses() {
+    String deep = "(".repeat(100) + "1" + ")".repeat(100);
+    assertTrue(FormulaParser.parse(deep).ok());
+  }
+
+  @Test
+  void aSmallStackGivesADiagnosticOrAResultButNeverAnError() throws InterruptedException {
+    String deep = "(".repeat(120) + "1" + ")".repeat(120);
+    Throwable[] thrown = new Throwable[1];
+    Thread thread = new Thread(null, () -> FormulaParser.parse(deep), "small-stack", 32 * 1024);
+    thread.setUncaughtExceptionHandler((t, e) -> thrown[0] = e);
+    thread.start();
+    thread.join();
+    assertEquals(null, thrown[0]);
   }
 
   // Generic helpers

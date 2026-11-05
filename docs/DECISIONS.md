@@ -166,7 +166,7 @@ every compile, and `javac -Xlint:all -Werror`.
 
 ## ADR-0008: Corpus strategy, and the Enron corpus is `.xls` only
 
-**Status:** Proposed for Enron (needs a maintainer decision). Accepted for the POI tier.
+**Status:** Accepted for the POI tier. The Enron options below were resolved by ADR-0013.
 
 **Context.** The brief suggests the Enron spreadsheet corpus. Measured on 2026-11-04:
 - The Enron mail predates `.xlsx` (introduced with Excel 2007). The
@@ -258,4 +258,31 @@ and a sheet entry with an empty `r:id` is listed with no cells.
 reject it, even though row 1 is the likely meaning.
 
 **Revisit when** real-world corpus files are rejected for reasons where the intended value is clear.
+
+---
+
+## ADR-0013: Real-world corpus is cleaned Enron, read with POI HSSF inside `eval/` only
+
+**Status:** Accepted (maintainer decision, 2026-11-05). Not implemented yet; needed before M2.
+
+**Context.** ADR-0008 found that Enron is entirely `.xls`, and listed three options.
+
+**Decision.** Read `.xls` corpus files with Apache POI's HSSF reader, confined to `eval/`.
+
+- This knowingly extends constraint 4, which allowed POI for reading `.xlsx`, to `.xls` for corpus use.
+- Formula evaluation stays entirely Cellerity's. POI's evaluator is never called.
+- `cellerity-io` and the published library stay `.xlsx` only.
+- Use only the cleaned Nuix subset of `SheetJS/enron_xls` (CC0), because the original data contains
+  personal information. Commit none of it, pin it by commit and checksum, and publish aggregates only.
+
+**Why.** It keeps Excel's own cached values as ground truth, which conversion through LibreOffice would
+not.
+
+**Open points for implementation.**
+- HSSF returns formulas as POI renders them from binary tokens, not as Excel stored text. Parse rates
+  on this corpus therefore partly measure POI's rendering, and reports must say so.
+- The mirror says some files are TSV, SYLK, HTML, or BIFF2 despite the extension. These will be counted
+  and reported as unreadable rather than ignored.
+- The size of the Nuix subset and how many files have Excel as their writer are not yet measured.
+- Fidelity on this corpus can differ from `.xlsx`-native behaviour, so results are reported per corpus.
 

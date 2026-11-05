@@ -42,8 +42,8 @@ Java 25, and on Java 21 where stated. CI has not run yet, because the repository
 - **`.xlsx` and `.xlsm` only.** Legacy `.xls`, encrypted files, and `.xlsb` are rejected.
 - **The corpus is not real-world.** It is Apache POI's test data, mostly bug reproductions and fuzzer
   output. The POI cross-check shows that our reader decodes files as another mature reader does. It does
-  not show fidelity to Excel, and a real-world corpus is still an open decision
-  ([ADR-0008](docs/DECISIONS.md)).
+  not show fidelity to Excel. The real-world corpus is decided but not built yet
+  ([ADR-0013](docs/DECISIONS.md)).
 - **Some files are strictly rejected.** A file POI can read may be rejected here if a value would have to
   be guessed ([ADR-0012](docs/DECISIONS.md)).
 - **Not everything was cross-checked.** POI could not read 7 of the files we load, including Strict OOXML.

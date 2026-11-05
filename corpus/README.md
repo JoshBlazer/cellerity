@@ -7,8 +7,8 @@
 | POI test data | `downloads/poi/` (not committed) | `.xlsx` files from Apache POI's test data, pinned by commit and SHA-256 in `manifest.tsv` | Mixed: many claim Excel as writer, others were written by libraries or are deliberately corrupt | Reader robustness |
 
 **POI test data is not representative of real-world models.** It consists largely of bug reproductions
-and fuzzer output, so function rankings from it must not be described as real-world usage. A real-world
-corpus is an open decision: see ADR-0008.
+and fuzzer output, so function rankings from it must not be described as real-world usage. The real-world
+corpus is decided but not built yet: see ADR-0013.
 
 ## Commands
 

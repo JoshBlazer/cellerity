@@ -30,30 +30,30 @@ Read this first at the start of every session. Append at the end of every sessio
 - **CI has never run**, so M0 is not done. Linux is untested.
 - `make eval` and `make crosscheck` have not been run as `make`, which is not installed here. Their
   commands were run directly.
-- Nothing is pushed. The GitHub repository does not exist yet.
 
 ### Next
 
 1. Maintainer review of M0.
-2. With approval, create the repository, push, and get CI green. Fix what it finds.
+2. Get CI green on `JoshBlazer/cellerity` (private). Fix what it finds.
 3. M1: write the parser design note with signatures and failing tests first. Expand shared formulas,
    and add parse rate and regression gates to `make eval`.
 
 ### Open questions for the maintainer
 
-1. **Push:** may `JoshBlazer/cellerity` be created and pushed? Public or private first?
-2. **Real-world corpus (needed before M2):** Enron is entirely `.xls` (ADR-0008). The recommendation is
-   to read it with POI HSSF inside `eval/` only, which extends constraint 4's wording to `.xls`.
+1. **Visibility:** the repository starts private. When should it become public?
+2. *Resolved:* the real-world corpus is cleaned Enron read with POI HSSF inside `eval/` (ADR-0013).
 3. **Trademarks (before M6):** two "cellerity" US filings appeared in a search and could not be opened.
 4. **Tagline:** JIT needs a GraalVM JDK, so standard-JDK teams do not get the headline speed (R7).
 
 ### Blockers
 
-None for local work. Milestone completion is blocked on question 1.
+None.
 
 ### Working notes
 
-- Commits use a repo-local identity with the GitHub noreply address, so no personal email is published.
+- Commit and push only as `Joshua Willie <joshblazerwillie@gmail.com>` through the `JoshBlazer` account,
+  with no co-authors unless explicitly requested. The repo has local identity and credential settings,
+  and the first 6 commits were rewritten before the first push to match.
 - In this Windows Git Bash setup, heredocs containing `#` or apostrophes can fail to parse, and a native
   `curl` cannot read POSIX paths from a config file.
 - The first `gradlew` wrapper download stalled at 0 bytes here. The distribution was seeded into the

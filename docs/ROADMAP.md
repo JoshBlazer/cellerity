@@ -23,7 +23,7 @@ once CI is green. Work stops at each milestone end for review.
 
 ## Needed before M2
 
-- Maintainer decision on the real-world corpus (ADR-0008).
+- Build the real-world corpus tier: cleaned Enron read with POI HSSF inside `eval/` (ADR-0013).
 
 ## Later layers
 

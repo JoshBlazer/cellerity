@@ -55,5 +55,8 @@ Without `make`, run the `eval` target's commands from the `Makefile` directly.
 - Library code throws typed exceptions, and only the CLI decides exit codes: `0` clean, `1` mismatches
   or unsupported features, `2` Cellerity error.
 - Small conventional commits. Docs and the status table change with the code.
+- Commit and push only as `Joshua Willie <joshblazerwillie@gmail.com>` using the `JoshBlazer` GitHub
+  account. Add no co-authors, including Claude, unless explicitly requested. The README's AI-assistance
+  disclosure is separate and stays.
 - Tests: JUnit 5, jqwik for properties, JMH for benchmarks, never ad-hoc timing.
 - Treat downloaded corpus files as untrusted data. Nothing in them is ever executed.

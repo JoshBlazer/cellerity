@@ -15,20 +15,20 @@ but slower ([ADR-0006](docs/DECISIONS.md)).
 
 ## Status
 
-Every row names the command that proves it. "Proven locally" means the command passed on Windows 11 on
-Java 25, and on Java 21 where stated. CI has not run yet, because the repository has not been pushed.
+Every row names the command that proves it. CI runs the build on Ubuntu with Java 21 and 25 and on Windows
+with Java 25, and runs the corpus checks on Ubuntu with Java 25.
 
 | Capability | State | Proving command |
 |---|---|---|
-| Build, formatting, static analysis, tests (160) on Java 21 and 25 | Proven locally | `./gradlew clean build` |
-| Group ID in a single build property | Proven locally | `git grep -n "io.github.joshblazer" -- "*.kts" "*.toml" "*.properties"` |
-| Read sheets, cells, formulas, cached values, defined names | Proven locally | `cellerity inspect corpus/samples/synthetic/sample.xlsx` |
-| Print a cached value (**M0 exit check**) | Proven locally | `cellerity eval corpus/samples/synthetic/sample.xlsx --get 'Sheet1!A1'` |
-| Corpus loads with no crashes (**M0 exit check**) | Proven locally | `make eval`: 358 files, 332 loaded, 26 rejected, 0 crashed |
-| Reader agrees with Apache POI on stored values and formula text | Proven locally | `make crosscheck`: 320 files, 1,120,879 cells, 0 disagreements |
-| Corpus integrity | Proven locally | `corpus/download.sh --verify-only`: 353 verified |
-| CI green | **Not yet run** | `.github/workflows/` |
-| **M0 complete** | **Pending CI** | |
+| Build, formatting, static analysis, tests (160) on Java 21 and 25 | Proven | `./gradlew clean build` |
+| Group ID in a single build property | Proven | `git grep -n "io.github.joshblazer" -- "*.kts" "*.toml" "*.properties"` |
+| Read sheets, cells, formulas, cached values, defined names | Proven | `cellerity inspect corpus/samples/synthetic/sample.xlsx` |
+| Print a cached value (**M0 exit check**) | Proven | `cellerity eval corpus/samples/synthetic/sample.xlsx --get 'Sheet1!A1'` |
+| Corpus loads with no crashes (**M0 exit check**) | Proven | `make eval`: 358 files, 332 loaded, 26 rejected, 0 crashed |
+| Reader agrees with Apache POI on stored values and formula text | Proven | `make crosscheck`: 320 files, 1,120,879 cells, 0 disagreements |
+| Corpus integrity | Proven | `corpus/download.sh --verify-only`: 353 verified |
+| CI green | Proven | `.github/workflows/`: `build` and `eval` |
+| **M0 complete** | **Done, pending maintainer review** | `docs/walkthroughs/m0.md` |
 | Formula parsing (M1) | Not started | |
 | Formula evaluation, `verify`, `coverage`, fidelity (M2) | Not started | |
 | Incremental recalculation (M3) | Not started | |
@@ -48,8 +48,6 @@ Java 25, and on Java 21 where stated. CI has not run yet, because the repository
   be guessed ([ADR-0012](docs/DECISIONS.md)).
 - **Not everything was cross-checked.** POI could not read 7 of the files we load, including Strict OOXML.
 - **Workbooks are held fully in memory.** Very large files are limited by heap and a 20-million-cell cap.
-- **`make` has not been run locally,** because it is not installed on the development machine. The
-  commands in its `eval` and `crosscheck` recipes were run directly.
 
 ## Try it
 

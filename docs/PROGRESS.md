@@ -25,17 +25,19 @@ Read this first at the start of every session. Append at the end of every sessio
 - POI cross-check: 320 files, 1,120,879 cells, 0 disagreements, corpus unchanged afterwards.
 - Stock Temurin 25 gets the interpreted Truffle runtime (ADR-0006).
 
+- CI is green on `0f757b5`: `build` on Ubuntu with JDK 21 and 25 and on Windows with JDK 25, and `eval`
+  on Ubuntu with JDK 25. The eval log matches the Windows numbers exactly.
+
 ### Not proven
 
-- **CI has never run**, so M0 is not done. Linux is untested.
-- `make eval` and `make crosscheck` have not been run as `make`, which is not installed here. Their
-  commands were run directly.
+- Fidelity to Excel: there is no evaluator yet.
+- Truffle JIT on a GraalVM JDK: only the fallback on stock Temurin was run (ADR-0006).
+- `make` has not run on the Windows development machine, where it is not installed. It runs in CI.
 
 ### Next
 
 1. Maintainer review of M0.
-2. Get CI green on `JoshBlazer/cellerity` (private). Fix what it finds.
-3. M1: write the parser design note with signatures and failing tests first. Expand shared formulas,
+2. M1: write the parser design note with signatures and failing tests first. Expand shared formulas,
    and add parse rate and regression gates to `make eval`.
 
 ### Open questions for the maintainer

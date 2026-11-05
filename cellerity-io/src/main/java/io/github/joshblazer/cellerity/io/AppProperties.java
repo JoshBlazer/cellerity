@@ -17,11 +17,17 @@ record AppProperties(Optional<String> application, Optional<String> appVersion) 
         continue;
       }
       switch (reader.getLocalName()) {
-        case "Application" -> application = Optional.of(reader.getElementText());
-        case "AppVersion" -> version = Optional.of(reader.getElementText());
+        case "Application" -> application = normalized(reader.getElementText());
+        case "AppVersion" -> version = normalized(reader.getElementText());
         default -> {}
       }
     }
     return new AppProperties(application, version);
+  }
+
+  /** Collapses whitespace, since some writers wrap this text. Blank means not stated. */
+  private static Optional<String> normalized(String text) {
+    String clean = text.strip().replaceAll("\\s+", " ");
+    return clean.isEmpty() ? Optional.empty() : Optional.of(clean);
   }
 }

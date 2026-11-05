@@ -128,6 +128,9 @@ public final class XlsxReader {
       StylesPart styles,
       CellBudget budget)
       throws XlsxReadException {
+    if (entry.relationshipId().isEmpty()) {
+      return new Sheet(entry.name(), SheetKind.OTHER, entry.state(), Map.of());
+    }
     Relationships.Relationship rel =
         workbookRels
             .byId(entry.relationshipId())

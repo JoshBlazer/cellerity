@@ -19,7 +19,7 @@ record WorkbookPart(
 
   record SheetEntry(String name, String relationshipId, SheetState state) {}
 
-  static WorkbookPart parse(XMLStreamReader reader) throws XMLStreamException {
+  static WorkbookPart parse(XMLStreamReader reader) throws XMLStreamException, XlsxReadException {
     List<SheetEntry> sheets = new ArrayList<>();
     List<DefinedName> names = new ArrayList<>();
     DateSystem dateSystem = DateSystem.SYSTEM_1900;
@@ -28,6 +28,10 @@ record WorkbookPart(
     while (reader.hasNext()) {
       if (reader.next() != XMLStreamConstants.START_ELEMENT) {
         continue;
+      }
+      if (String.valueOf(reader.getNamespaceURI()).contains("/office/excel/2006/")) {
+        throw new XlsxReadException(
+            XlsxReadException.Kind.UNSUPPORTED_FORMAT, "Pre-release Excel 2007 format");
       }
       switch (reader.getLocalName()) {
         case "workbookPr" -> {

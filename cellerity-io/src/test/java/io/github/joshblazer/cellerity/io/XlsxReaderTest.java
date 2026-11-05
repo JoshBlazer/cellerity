@@ -481,7 +481,45 @@ class XlsxReaderTest {
     assertEquals(1, read(fixture).sheets().get(0).cells().size());
   }
 
+  @Test
+  void sheetWithAnEmptyRelationshipIdIsListedWithoutCells() throws Exception {
+    XlsxFixture fixture =
+        new XlsxFixture()
+            .sheet("Data", "<row r=\"1\"><c r=\"A1\"><v>1</v></c></row>")
+            .part(
+                "xl/workbook.xml",
+                "<workbook xmlns=\""
+                    + XlsxFixture.MAIN
+                    + "\" xmlns:r=\""
+                    + XlsxFixture.REL
+                    + "\"><sheets><sheet name=\"Data\" sheetId=\"1\" r:id=\"rIdS1\"/>"
+                    + "<sheet name=\"Module\" sheetId=\"2\" r:id=\"\"/></sheets></workbook>");
+    Workbook wb = read(fixture);
+    assertEquals(2, wb.sheets().size());
+    assertEquals(new Value.Num(1), value(wb, "A1"));
+    assertEquals(SheetKind.OTHER, wb.sheet("Module").orElseThrow().kind());
+    assertTrue(wb.sheet("Module").orElseThrow().cells().isEmpty());
+  }
+
+  @Test
+  void writerLabelIsNormalized() throws Exception {
+    assertEquals(
+        "ODF Converter",
+        read(one("").appProperties("ODF\n     Converter", "1")).info().application().orElseThrow());
+    assertTrue(read(one("").appProperties("  ", "1")).info().application().isEmpty());
+  }
+
   // Failure modes
+
+  @Test
+  void prereleaseExcel2007FormatIsUnsupported() throws IOException {
+    XlsxFixture fixture =
+        new XlsxFixture()
+            .part(
+                "xl/workbook.xml",
+                "<workbook xmlns=\"http://schemas.microsoft.com/office/excel/2006/2\"/>");
+    assertEquals(XlsxReadException.Kind.UNSUPPORTED_FORMAT, failureKind(fixture.write(file())));
+  }
 
   private XlsxReadException.Kind failureKind(Path path) {
     return assertThrows(XlsxReadException.class, () -> XlsxReader.read(path)).kind();

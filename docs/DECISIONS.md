@@ -216,3 +216,46 @@ because M0 must list sheets, cells, formulas, and defined names and no other com
 **Decision.** Until M2 there is no evaluator. `cellerity eval --get` prints the stored cached value,
 as the M0 exit check specifies. `--set` exits `1` with a message, because it would require
 recalculation. Printing a stale value after a `--set` would be silently wrong.
+
+---
+
+## ADR-0011: Apache POI as a read-only cross-check in `eval/`
+
+**Status:** Accepted
+
+**Context.** "Loads without crashing" says nothing about whether cells were decoded correctly, and M0
+has no evaluator to expose decoding errors. Constraint 4 reserves formula evaluation for Cellerity but
+allows POI for reading.
+
+**Decision.** `eval/` depends on `poi-ooxml` for `PoiCrossCheck`, which compares stored values and
+formula text in both directions. POI's formula evaluator is never called. No published module depends
+on POI, so library users do not inherit it. `cellerity-eval` is a tool and not part of the library API.
+
+**What agreement means.** Our reader decodes files the same way as another mature reader. It says
+nothing about Excel fidelity. Files POI cannot read, such as Strict OOXML, are not cross-checked.
+
+**Safeguards**, each added because of a real failure during M0:
+- POI is opened with `PackageAccess.READ` and reverted. `new XSSFWorkbook(File)` saves over the file on
+  close, and it damaged 320 corpus files until `corpus/download.sh` caught them by checksum.
+- `make crosscheck` re-verifies every corpus checksum afterwards.
+- It fails if fewer than 300 files are compared, because that damage first appeared as a false pass:
+  zero disagreements across a smaller set of files.
+- Known differences are detected and counted rather than filtered out: array-range members, which POI
+  presents as formula cells, and `<c t="n"><v></v></c>`, which POI reads as 0 and we read as blank.
+
+---
+
+## ADR-0012: Rejected files stay rejected unless their data is sound
+
+**Status:** Accepted
+
+**Decision.** The reader is strict about content that could change a value, because a guess there would
+silently corrupt results: a bad cell reference, an out-of-range shared string, or an unparseable number
+rejects the workbook. It is lenient only where nothing is lost: unreadable styling means "not a date",
+and a sheet entry with an empty `r:id` is listed with no cells.
+
+**Example.** POI's `invalid_cell_reference.xlsx` has a cell at `r="B"`, with no row. POI accepts it. We
+reject it, even though row 1 is the likely meaning.
+
+**Revisit when** real-world corpus files are rejected for reasons where the intended value is clear.
+

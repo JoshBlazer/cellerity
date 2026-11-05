@@ -42,6 +42,7 @@ Non-goals for v1: UI, writing `.xlsx`, VBA, charts, pivots, external links. See 
 ./gradlew :cellerity-cli:installDist           # CLI at cellerity-cli/build/install/cellerity/bin/
 corpus/download.sh                             # fetch and verify the corpus
 make eval                                      # corpus metrics (make is not on every dev machine)
+make crosscheck                                # compare the reader with POI, then re-verify the corpus
 ```
 
 Without `make`, run the `eval` target's commands from the `Makefile` directly.

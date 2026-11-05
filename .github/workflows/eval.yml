@@ -20,6 +20,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6
       # Fails if any corpus file crashes the reader or fails its checksum.
       - run: make eval
+      # Fails on any disagreement with POI, low coverage, or a modified corpus file.
+      - run: make crosscheck
       - uses: actions/upload-artifact@v7
         with:
           name: corpus-load

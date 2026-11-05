@@ -27,7 +27,7 @@ The rest describes the plan and will change as milestones land.
 | `cellerity-cli` | Command line | io, core (more later) | `eval` and `inspect` for M0 |
 | `cellerity-report` | Static HTML reports, offline | io | M2 |
 | `cellerity-bench` | JMH benchmarks versus Apache POI | api | M4 |
-| `cellerity-eval` (`eval/`) | Corpus harness and results history | io, core | Load check for M0 |
+| `cellerity-eval` (`eval/`) | Corpus harness and results history; not published | io, core, POI read-only (ADR-0011) | Load check and POI cross-check for M0 |
 
 Dependencies point one way, and no module depends on a CLI or report module. Module dependencies will
 change as the milestones arrive, and each change is reflected in this table.

@@ -14,6 +14,7 @@ corpus is an open decision: see ADR-0008.
 
 ```
 corpus/download.sh            # fetch and verify everything in manifest.tsv
+corpus/download.sh --verify-only   # verify without fetching or deleting
 corpus/pin-poi.sh <commit>    # move the pin and regenerate manifest.tsv
 java corpus/samples/synthetic/MakeSample.java corpus/samples/synthetic/sample.xlsx
 ```

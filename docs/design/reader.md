@@ -101,4 +101,5 @@ needs them.
 - The model is fully in memory: streaming applies to parsing and not to the result, and very large
   workbooks are limited by heap and `maxCells`.
 - There is no shared-formula expansion, number-format rendering, or `.xls` support.
+- Rejection policy is in ADR-0012. For example, a cell with `r="B"` rejects the whole workbook.
 - Blank styled cells are dropped, so empty formatting is not reported.

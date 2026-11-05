@@ -6,3 +6,5 @@ build/
 out/
 # Downloaded corpus files are never committed; corpus/manifest.tsv pins them by checksum.
 corpus/downloads/
+# The working copy of the latest run. Dated copies in eval/results/ are the history.
+eval/results/latest-*

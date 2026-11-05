@@ -228,6 +228,7 @@ public final class PoiCrossCheck {
       case Value.Bool bool -> "b:" + bool.value();
       case Value.Err error -> "e:" + errorCode(error.error());
       case Value.Blank blank -> "blank";
+      case Value.Grid grid -> throw new IllegalStateException("A stored cell cannot hold a grid");
     };
   }
 

@@ -293,6 +293,7 @@ public final class Main {
       case Value.Bool bool -> bool.value() ? "TRUE" : "FALSE";
       case Value.Err error -> error.error().code();
       case Value.Blank blank -> "";
+      case Value.Grid grid -> "{array " + grid.rows() + "x" + grid.columns() + "}";
     };
   }
 

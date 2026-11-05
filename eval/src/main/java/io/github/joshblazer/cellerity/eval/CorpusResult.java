@@ -17,7 +17,8 @@ record CorpusResult(
     long formulaCellsWithCachedValue,
     long definedNames,
     Map<String, Integer> writers,
-    List<Failure> failures) {
+    List<Failure> failures,
+    ParseStats parse) {
 
   /** A file that did not load. */
   record Failure(String file, String outcome, String message) {}
@@ -48,9 +49,39 @@ record CorpusResult(
         + ("  \"formulaCellsWithCachedValue\": " + formulaCellsWithCachedValue + ",\n")
         + ("  \"definedNames\": " + definedNames + ",\n")
         + ("  \"writers\": " + counts(writers) + ",\n")
+        + parseJson()
         + "  \"failures\": ["
         + (failures.isEmpty() ? "" : "\n" + failureList + "\n  ")
         + "]\n}\n";
+  }
+
+  private String parseJson() {
+    String ranked =
+        parse.ranked().entrySet().stream()
+            .map(e -> "    " + quote(e.getKey()) + ": " + e.getValue())
+            .collect(Collectors.joining(",\n"));
+    String examples =
+        parse.failureExamples().stream().map(CorpusResult::quote).collect(Collectors.joining(", "));
+    return "  \"parse\": {\"formulaCells\": "
+        + parse.formulaCells()
+        + ", \"parsed\": "
+        + parse.parsed()
+        + ", \"failed\": "
+        + parse.failed()
+        + ", \"roundTripFailures\": "
+        + parse.roundTripFailures()
+        + ", \"dataTables\": "
+        + parse.dataTables()
+        + ", \"rate\": "
+        + parse.rate()
+        + ", \"failureExamples\": ["
+        + examples
+        + "]},\n"
+        + "  \"functionCalls\": "
+        + parse.functionCalls()
+        + ",\n  \"functionsRanked\": {\n"
+        + ranked
+        + "\n  },\n";
   }
 
   private static String counts(Map<String, Integer> counts) {

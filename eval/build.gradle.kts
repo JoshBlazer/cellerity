@@ -6,6 +6,7 @@ plugins {
 dependencies {
     implementation(project(":cellerity-core"))
     implementation(project(":cellerity-io"))
+    implementation(project(":cellerity-formula"))
     // Independent check of the reader only (ADR-0011). Never used by a published module.
     implementation(libs.poi.ooxml)
 }

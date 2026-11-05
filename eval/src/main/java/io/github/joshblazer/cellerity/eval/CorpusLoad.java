@@ -1,5 +1,6 @@
 package io.github.joshblazer.cellerity.eval;
 
+import io.github.joshblazer.cellerity.formula.ParsedWorkbook;
 import io.github.joshblazer.cellerity.io.Cell;
 import io.github.joshblazer.cellerity.io.Sheet;
 import io.github.joshblazer.cellerity.io.Workbook;
@@ -40,10 +41,12 @@ public final class CorpusLoad {
   public static void main(String[] args) throws IOException {
     List<Path> roots = new ArrayList<>();
     Path out = null;
+    Path baseline = null;
     for (int i = 0; i + 1 < args.length; i += 2) {
       switch (args[i]) {
         case "--corpus" -> roots.add(Path.of(args[i + 1]));
         case "--out" -> out = Path.of(args[i + 1]);
+        case "--baseline" -> baseline = Path.of(args[i + 1]);
         default -> {
           System.err.println("Unknown argument: " + args[i]);
           System.exit(2);
@@ -51,7 +54,8 @@ public final class CorpusLoad {
       }
     }
     if (roots.isEmpty() || out == null || args.length % 2 != 0) {
-      System.err.println("usage: CorpusLoad --corpus DIR [--corpus DIR ...] --out FILE");
+      System.err.println(
+          "usage: CorpusLoad --corpus DIR [--corpus DIR ...] --out FILE [--baseline FILE]");
       System.exit(2);
     }
     CorpusResult result = run(roots, PER_FILE_TIMEOUT);
@@ -78,8 +82,18 @@ public final class CorpusLoad {
     result.failures().stream()
         .filter(f -> f.outcome().equals("CRASH"))
         .forEach(f -> System.out.println("CRASH " + f.file() + ": " + f.message()));
+    System.out.printf(
+        Locale.ROOT,
+        "parse: %d of %d formula cells (%.4f%%), %d failed, %d do not round-trip, %d data tables%n",
+        result.parse().parsed(),
+        result.parse().formulaCells(),
+        100 * result.parse().rate(),
+        result.parse().failed(),
+        result.parse().roundTripFailures(),
+        result.parse().dataTables());
+    boolean belowBaseline = baseline != null && !Baseline.load(baseline).check(result);
     // Exit explicitly: a timed-out read may still occupy a worker thread.
-    System.exit(result.crashed() == 0 ? 0 : 1);
+    System.exit(result.crashed() == 0 && !belowBaseline ? 0 : 1);
   }
 
   /** Loads all {@code .xlsx} and {@code .xlsm} files under the roots. */
@@ -154,6 +168,7 @@ public final class CorpusLoad {
     private final Map<String, Integer> rejected = new TreeMap<>();
     private final Map<String, Integer> writers = new TreeMap<>();
     private final List<CorpusResult.Failure> failures = new ArrayList<>();
+    private final ParseStats parse = new ParseStats();
 
     void loaded(Workbook workbook) {
       files++;
@@ -161,6 +176,7 @@ public final class CorpusLoad {
       sheets += workbook.sheets().size();
       definedNames += workbook.definedNames().size();
       writers.merge(workbook.info().application().orElse("(not stated)"), 1, Integer::sum);
+      parse.add(ParsedWorkbook.of(workbook));
       for (Sheet sheet : workbook.sheets()) {
         for (Cell cell : sheet.cells().values()) {
           cells++;
@@ -198,7 +214,8 @@ public final class CorpusLoad {
           formulaCellsWithCachedValue,
           definedNames,
           writers,
-          failures);
+          failures,
+          parse);
     }
   }
 }

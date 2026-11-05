@@ -30,6 +30,8 @@ tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
     options.compilerArgs.addAll(listOf("-Xlint:all,-processing,-serial", "-Werror"))
     options.errorprone.disableWarningsInGeneratedCode = true
+    // Style or stub-first friction, not defects (ADR-0007).
+    options.errorprone.disable("DoNotCallSuggester", "RefactorSwitch")
 }
 
 tasks.withType<Test>().configureEach {

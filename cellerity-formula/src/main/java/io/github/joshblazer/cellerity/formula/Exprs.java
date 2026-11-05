@@ -95,10 +95,6 @@ public final class Exprs {
 
   /** The same tree with every span replaced by {@link Span#NONE}, for structural comparison. */
   public static Expr withoutSpans(Expr expr) {
-    return mapLeaves(strip(expr), Exprs::strip);
-  }
-
-  private static Expr strip(Expr expr) {
     Span none = Span.NONE;
     return switch (expr) {
       case Expr.Num n -> new Expr.Num(n.value(), n.text(), none);
@@ -112,12 +108,17 @@ public final class Exprs {
       case Expr.Name n -> new Expr.Name(n.scope(), n.name(), none);
       case Expr.Structured s -> new Expr.Structured(s.text(), none);
       case Expr.Invalid i -> new Expr.Invalid(i.text(), none);
-      case Expr.Call c -> new Expr.Call(c.name(), c.args(), none);
-      case Expr.Unary u -> new Expr.Unary(u.op(), u.operand(), none);
-      case Expr.Percent p -> new Expr.Percent(p.operand(), none);
-      case Expr.Binary b -> new Expr.Binary(b.op(), b.left(), b.right(), none);
-      case Expr.Paren p -> new Expr.Paren(p.inner(), none);
-      case Expr.ArrayLit a -> new Expr.ArrayLit(a.rows(), none);
+      case Expr.Call c ->
+          new Expr.Call(c.name(), c.args().stream().map(Exprs::withoutSpans).toList(), none);
+      case Expr.Unary u -> new Expr.Unary(u.op(), withoutSpans(u.operand()), none);
+      case Expr.Percent p -> new Expr.Percent(withoutSpans(p.operand()), none);
+      case Expr.Binary b ->
+          new Expr.Binary(b.op(), withoutSpans(b.left()), withoutSpans(b.right()), none);
+      case Expr.Paren p -> new Expr.Paren(withoutSpans(p.inner()), none);
+      case Expr.ArrayLit a ->
+          new Expr.ArrayLit(
+              a.rows().stream().map(row -> row.stream().map(Exprs::withoutSpans).toList()).toList(),
+              none);
     };
   }
 }

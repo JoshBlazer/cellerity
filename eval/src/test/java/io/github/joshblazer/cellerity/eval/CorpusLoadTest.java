@@ -85,7 +85,8 @@ class CorpusLoadTest {
             0,
             0,
             java.util.Map.of(),
-            List.of(new CorpusResult.Failure("a\"b.xlsx", "CRASH", "line1\nline2\t\\")));
+            List.of(new CorpusResult.Failure("a\"b.xlsx", "CRASH", "line1\nline2\t\\")),
+            new ParseStats());
     String json = r.toJson("2026-11-04");
     assertTrue(json.contains("a\\\"b.xlsx"), json);
     assertTrue(json.contains("line1\\nline2\\t\\\\"), json);

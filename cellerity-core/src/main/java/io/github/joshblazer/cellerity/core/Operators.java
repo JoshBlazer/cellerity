@@ -4,11 +4,35 @@ import java.util.Locale;
 
 /** Excel's operators on scalars. They return error values rather than throw. */
 public final class Operators {
+  private static final double NEAR_ZERO = Math.scalb(1.0, -48);
+
   private Operators() {}
 
   /** Applies an operator, lifting it over grids. */
   public static Value binary(BinOp op, Value left, Value right, FunctionContext context) {
     return Lift.binary(left, right, context, (a, b) -> scalar(op, a, b));
+  }
+
+  /**
+   * Excel's snap to zero. When addition or subtraction is the last operation of a formula, a result
+   * that is tiny next to its operands is noise from binary fractions, and Excel returns 0. So
+   * {@code =0.5-0.4-0.1} is 0, while {@code =(0.5-0.4-0.1)} is not. Both engines must call this for
+   * such a root operator, and for no other. The threshold is an evidence-based estimate (ADR-0015).
+   */
+  public static Value finalAddOrSubtract(
+      Value left, Value right, Value result, FunctionContext context) {
+    if (!(result instanceof Value.Num number) || number.value() == 0) {
+      return result;
+    }
+    try {
+      double x = Coercion.toNumber(Coercion.intersect(left, context));
+      double y = Coercion.toNumber(Coercion.intersect(right, context));
+      return Math.abs(number.value()) < Math.max(Math.abs(x), Math.abs(y)) * NEAR_ZERO
+          ? new Value.Num(0)
+          : result;
+    } catch (FunctionError e) {
+      return result;
+    }
   }
 
   /** Applies an operator to two scalars. */

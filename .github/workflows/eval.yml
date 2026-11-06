@@ -37,10 +37,13 @@ jobs:
           distribution: temurin
           java-version: "25"
       - uses: gradle/actions/setup-gradle@v6
-      # The log and artifact are public, so this passes no --detail file (ADR-0013).
+      # Logs and artifacts are public. Only POI's public test data gets a detail file, never Enron
+      # (ADR-0013).
       - run: make -k fidelity FIDELITY_HEAP=8g
       - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: fidelity
-          path: eval/results/latest-fidelity-*.json
+          path: |
+            eval/results/latest-fidelity-*.json
+            eval/results/latest-detail-poi.tsv

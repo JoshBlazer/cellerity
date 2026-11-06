@@ -229,6 +229,7 @@ public final class Fidelity {
     System.out.printf(
         Locale.ROOT,
         "%s: fidelity %.4f%% of %d compared; coverage %.2f%% of %d formula cells%n"
+            + "  not comparable because: %s%n"
             + "  exact %d, display-only %d, within tolerance %d, REAL MISMATCH %d%n"
             + "  unsupported function %d, unsupported feature %d, not comparable %d%n"
             + "  compared cells resting on a cached input: %d%n"
@@ -238,6 +239,7 @@ public final class Fidelity {
         r.compared(),
         100 * r.coverage(),
         r.total(),
+        r.notComparable(),
         r.count(Category.EXACT),
         r.count(Category.DISPLAY_ONLY),
         r.count(Category.WITHIN_TOLERANCE),
@@ -333,6 +335,7 @@ public final class Fidelity {
         "{\"fidelity\": %s, \"coverage\": %s, \"formulaCells\": %d, \"compared\": %d, \"exact\": %d,"
             + " \"displayOnly\": %d, \"withinTolerance\": %d, \"realMismatch\": %d,"
             + " \"unsupportedFunction\": %d, \"unsupportedFeature\": %d, \"notComparable\": %d,"
+            + " \"notComparableReasons\": %s,"
             + " \"comparedWithCachedInput\": %d, \"rootMismatches\": %d,"
             + " \"mismatchesByFunction\": %s, \"rootPatterns\": %s, \"allPatterns\": %s,"
             + " \"unsupportedFeatures\": %s}",
@@ -347,6 +350,7 @@ public final class Fidelity {
         r.count(Category.UNSUPPORTED_FUNCTION),
         r.count(Category.UNSUPPORTED_FEATURE),
         r.count(Category.NOT_COMPARABLE),
+        counts(r.notComparable()),
         r.comparedWithCachedInput(),
         r.rootMismatches(),
         counts(r.mismatchFunctions()),

@@ -38,8 +38,21 @@ public final class Interpreter implements FormulaEngine {
   public Value evaluate(
       Expr expr, int sheet, int column, int row, boolean arrayFormula, Workspace workspace) {
     Frame frame = new Frame(workspace, sheet, column, row, arrayFormula, 0);
+    if (!arrayFormula && expr instanceof Expr.Binary b && isAddOrSubtract(b)) {
+      Value left = eval(b.left(), frame);
+      Value right = eval(b.right(), frame);
+      BinOp op = b.op() == Expr.BinaryOp.ADD ? BinOp.ADD : BinOp.SUBTRACT;
+      return finish(
+          Operators.finalAddOrSubtract(
+              left, right, Operators.binary(op, left, right, frame), frame),
+          frame);
+    }
     Value result = eval(expr, frame);
     return arrayFormula ? finishArray(result) : finish(result, frame);
+  }
+
+  private static boolean isAddOrSubtract(Expr.Binary b) {
+    return b.op() == Expr.BinaryOp.ADD || b.op() == Expr.BinaryOp.SUBTRACT;
   }
 
   private static Value finish(Value result, Frame frame) {

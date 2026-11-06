@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.joshblazer.cellerity.core.CellRef;
+import io.github.joshblazer.cellerity.core.ExcelError;
 import io.github.joshblazer.cellerity.core.Value;
 import io.github.joshblazer.cellerity.formula.FormulaParser;
 import io.github.joshblazer.cellerity.formula.ParsedWorkbook;
@@ -39,8 +40,11 @@ class MismatchDiagnosticsTest {
   @Test
   void aDifferenceHoldsNoValues() {
     assertEquals(
-        "number vs number, gap below 1e-3",
+        "number vs number, gap below 1e-3, absolute above 1e-5",
         MismatchPattern.difference(new Value.Num(1000.5), new Value.Num(1000.6)));
+    assertEquals(
+        "number vs number, gap below 1e-6, absolute below 1e-7",
+        MismatchPattern.difference(new Value.Num(0.1), new Value.Num(0.10000005)));
     assertEquals(
         "number vs number, opposite signs",
         MismatchPattern.difference(new Value.Num(-1), new Value.Num(1)));
@@ -76,6 +80,27 @@ class MismatchDiagnosticsTest {
   }
 
   @Test
+  void aNameErrorFromAMissingAddInIsNotComparableButOthersStillCount() {
+    Map<CellRef, Cell> cells = new LinkedHashMap<>();
+    put(cells, "A1", 1.0, null);
+    put(cells, "A2", 2.0, null);
+    putError(cells, "B1", "ISODD(A1)"); // the add-in was missing when the file was saved
+    putError(cells, "C1", "B1+1"); // and this only repeats that error
+    putError(cells, "D1", "A1+A2"); // nothing explains this one
+    Sheet sheet = new Sheet("Sheet1", SheetKind.WORKSHEET, SheetState.VISIBLE, cells);
+
+    VerifyResult result =
+        Verifier.verify(ParsedWorkbook.of(TestBooks.workbook(List.of(sheet), List.of())), 10);
+
+    assertEquals(2, result.count(Category.NOT_COMPARABLE));
+    assertEquals(
+        Map.of("add-in not loaded when saved", 1L, "reads a cell whose add-in was not loaded", 1L),
+        result.notComparable());
+    assertEquals(1, result.count(Category.REAL_MISMATCH));
+    assertEquals("D1", result.mismatches().get(0).cell());
+  }
+
+  @Test
   void countsSurviveAMerge() {
     Map<CellRef, Cell> cells = new LinkedHashMap<>();
     put(cells, "A1", 5.0, "1+1");
@@ -90,6 +115,22 @@ class MismatchDiagnosticsTest {
     assertEquals(2, merged.rootMismatches());
     assertEquals(2, merged.mismatchPatterns().values().iterator().next());
     assertTrue(merged.mismatches().isEmpty());
+  }
+
+  private static void putError(Map<CellRef, Cell> cells, String a1, String formula) {
+    CellRef ref = CellRef.parse(a1).orElseThrow();
+    cells.put(
+        ref,
+        new Cell(
+            ref,
+            Optional.of(new Value.Err(ExcelError.NAME)),
+            Optional.of(
+                new Formula(
+                    Formula.Kind.NORMAL,
+                    Optional.of(formula),
+                    OptionalInt.empty(),
+                    Optional.empty())),
+            false));
   }
 
   private static void put(Map<CellRef, Cell> cells, String a1, double cached, String formula) {

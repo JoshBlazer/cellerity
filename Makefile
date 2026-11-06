@@ -27,7 +27,7 @@ fidelity-enron: corpus
 	./gradlew :cellerity-eval:fidelity -PfidelityHeap=$(FIDELITY_HEAP) -PfidelityArgs="--corpus corpus/downloads/enron-nuix --out eval/results/latest-fidelity-enron.json"
 
 fidelity-poi: corpus
-	./gradlew :cellerity-eval:fidelity -PfidelityHeap=$(FIDELITY_HEAP) -PfidelityArgs="--corpus corpus/downloads/poi --corpus corpus/samples --out eval/results/latest-fidelity-poi.json"
+	./gradlew :cellerity-eval:fidelity -PfidelityHeap=$(FIDELITY_HEAP) -PfidelityArgs="--corpus corpus/downloads/poi --corpus corpus/samples --out eval/results/latest-fidelity-poi.json --detail eval/results/latest-detail-poi.tsv"
 
 # Compares our reader with Apache POI, then proves the corpus was not modified by doing so.
 crosscheck: corpus

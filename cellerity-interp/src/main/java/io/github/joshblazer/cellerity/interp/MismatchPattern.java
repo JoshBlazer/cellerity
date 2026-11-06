@@ -80,17 +80,28 @@ final class MismatchPattern {
     if (Math.signum(expected) != Math.signum(actual)) {
       return "opposite signs";
     }
-    double relative = Math.abs(expected - actual) / Math.max(Math.abs(expected), Math.abs(actual));
+    double gap = Math.abs(expected - actual);
+    double relative = gap / Math.max(Math.abs(expected), Math.abs(actual));
     if (relative < 1e-9) {
-      return "gap below 1e-9";
+      return "gap below 1e-9, " + absolute(gap);
     }
     if (relative < 1e-6) {
-      return "gap below 1e-6";
+      return "gap below 1e-6, " + absolute(gap);
     }
     if (relative < 1e-3) {
-      return "gap below 1e-3";
+      return "gap below 1e-3, " + absolute(gap);
     }
     return relative < 0.5 ? "gap below 50%" : "gap above 50%";
+  }
+
+  /** Excel states its solvers' accuracy in absolute terms, so this is the evidence for them. */
+  private static String absolute(double gap) {
+    for (int exponent = -10; exponent <= -5; exponent++) {
+      if (gap < Math.pow(10, exponent)) {
+        return "absolute below 1e" + exponent;
+      }
+    }
+    return "absolute above 1e-5";
   }
 
   private static String textGap(String expected, String actual) {

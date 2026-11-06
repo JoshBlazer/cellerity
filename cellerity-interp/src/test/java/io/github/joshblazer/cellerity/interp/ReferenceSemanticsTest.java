@@ -80,6 +80,14 @@ class ReferenceSemanticsTest {
   }
 
   @Test
+  void onlyAFinalAddOrSubtractSnapsToZero() {
+    assertEquals(num(0), eval(Map.of("A1", "=0.5-0.4-0.1"), "A1"));
+    assertEquals(num(0.5 - 0.4 - 0.1), eval(Map.of("A1", "=(0.5-0.4-0.1)"), "A1"));
+    assertEquals(num(0.5 - 0.4 - 0.1), eval(Map.of("A1", "=1*(0.5-0.4-0.1)"), "A1"));
+    assertEquals(num(1e-20), eval(Map.of("A1", "=0+1e-20"), "A1"));
+  }
+
+  @Test
   void anUntakenBranchIsNotEvaluated() {
     assertEquals(num(1), eval(Map.of("A1", "=IF(TRUE,1,A1)"), "A1"));
   }

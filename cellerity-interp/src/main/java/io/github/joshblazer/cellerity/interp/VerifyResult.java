@@ -30,6 +30,7 @@ public final class VerifyResult {
   private final Map<String, Long> unsupportedFunctions = new TreeMap<>();
   private final Map<String, Long> unsupportedFeatures = new TreeMap<>();
   private final Map<String, Long> mismatchFunctions = new TreeMap<>();
+  private final Map<String, Long> notComparable = new TreeMap<>();
   private final Map<String, Long> mismatchPatterns = new TreeMap<>();
   private final Map<String, Long> rootPatterns = new TreeMap<>();
   private final List<Mismatch> mismatches = new ArrayList<>();
@@ -54,6 +55,11 @@ public final class VerifyResult {
 
   void unsupportedFeature(String name) {
     unsupportedFeatures.merge(name, 1L, Long::sum);
+  }
+
+  void notComparable(String reason) {
+    add(Category.NOT_COMPARABLE);
+    notComparable.merge(reason, 1L, Long::sum);
   }
 
   void usedCachedInput(boolean compared) {
@@ -81,6 +87,7 @@ public final class VerifyResult {
     other.unsupportedFunctions.forEach((k, v) -> unsupportedFunctions.merge(k, v, Long::sum));
     other.unsupportedFeatures.forEach((k, v) -> unsupportedFeatures.merge(k, v, Long::sum));
     other.mismatchFunctions.forEach((k, v) -> mismatchFunctions.merge(k, v, Long::sum));
+    other.notComparable.forEach((k, v) -> notComparable.merge(k, v, Long::sum));
     other.mismatchPatterns.forEach((k, v) -> mismatchPatterns.merge(k, v, Long::sum));
     other.rootPatterns.forEach((k, v) -> rootPatterns.merge(k, v, Long::sum));
     usedCachedInput += other.usedCachedInput;
@@ -138,6 +145,11 @@ public final class VerifyResult {
 
   public Map<String, Long> mismatchFunctions() {
     return mismatchFunctions;
+  }
+
+  /** Why cells could not be compared (ADR-0014). */
+  public Map<String, Long> notComparable() {
+    return notComparable;
   }
 
   /** All real mismatches by pattern. Safe to publish. */

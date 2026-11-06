@@ -109,3 +109,22 @@ Limits are in `docs/walkthroughs/m2.md`.
 
 M3: dependency graph and incremental recalculation.
 
+## 2026-11-06: M3
+
+### Done and proven
+
+- Dependency graph, incremental recalculation, and cycle reporting. Limits are in `docs/walkthroughs/m3.md`.
+- `make recalc`: 0 disagreements in 2,533,277 cell comparisons after 1,099 changes, 6.24% of full evaluations.
+- CI green on `7c3ec48`: `build` run 42246679913 and `eval` run 42246679979.
+
+### Process notes
+
+- The M3 tests ran red first (36 of 36), but the stubs were replaced before they were committed, so no separate commit shows it.
+- `196945c` reached the branch with a failing test, and `67f5bab` has a message claiming a fix that it does not contain. The fix
+  is `7c3ec48`. Pushed history was not rewritten. `main` received these only together with the fixes.
+- Commands now commit only after checking that the build passed and that patches applied.
+
+### Next
+
+M4: Truffle runtime and benchmarks.
+

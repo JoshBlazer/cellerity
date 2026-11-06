@@ -4,8 +4,8 @@
 
 > **Status: early development.** Cellerity calculates workbooks with a reference interpreter and measures the
 > result against the values Excel stored. On the Enron corpus, fidelity is 99.97% of the **48.21%** of formula cells it
-> could compare ([what that means](docs/walkthroughs/m2.md)). There is no JIT runtime yet, there are no releases,
-> and no speed has been measured.
+> could compare ([what that means](docs/walkthroughs/m2.md)). It recalculates incrementally. There is no JIT runtime
+> yet, there are no releases, and no speed has been measured.
 
 Banks, insurers, and pricing teams run critical logic in Excel, and engineers need those models inside
 Java systems. Cellerity's goal is to compile a workbook's formulas into a GraalVM Truffle runtime, with
@@ -36,12 +36,15 @@ with Java 25, and runs the corpus checks on Ubuntu with Java 25.
 | **M1 complete** | **Done, pending maintainer review** | `docs/walkthroughs/m1.md` |
 | `cellerity verify` reports fidelity with coverage (**M2 exit check**) | Proven | `cellerity verify corpus/samples/poi/VLookupFullColumn.xlsx --report r.html`, run in `build.yml` |
 | Enron fidelity, excluding external links (**M2 exit check**) | 99.9739% of 340,722 compared; coverage 48.21% of 706,765 formula cells | `make fidelity-enron`; `eval/results/2026-11-06-m2-fidelity-enron.json` |
-| POI fidelity, a torture test and not real-world usage | 96.4393% of 23,956 compared; coverage 84.97% | `make fidelity-poi` |
+| POI fidelity, a torture test and not real-world usage | 96.4392% of 23,955 compared; coverage 84.97% | `make fidelity-poi` |
 | Function coverage | 98.36% of Enron's 299,996 calls | `make fidelity-enron` |
 | `--set` recalculates | Proven | `cellerity eval corpus/samples/synthetic/sample.xlsx --set CoverAmount=1000 --get 'Sheet1!B2'` prints 35 |
 | CI fails if fidelity regresses | Proven | `make fidelity` with `eval/baseline-fidelity-*.properties`; `FidelityBaselineTest` |
 | **M2 complete** | **Done, pending maintainer review** | `docs/walkthroughs/m2.md` |
-| Incremental recalculation (M3) | Not started | |
+| Changing one input recomputes only affected cells (**M3 exit check**) | Proven, by counting evaluations | `./gradlew :cellerity-interp:test --tests '*IncrementalWorkbookTest'` |
+| Incremental equals full recalculation on the corpus | 0 disagreements in 2,533,277 cell comparisons, after 1,099 changes | `make recalc`; `eval/results/2026-11-06-m3-recalc.json` |
+| Cycles detected and reported (**M3 exit check**) | Proven | `./gradlew :cellerity-cli:test --tests '*CycleReportTest'` |
+| **M3 complete** | **Done, pending maintainer review** | `docs/walkthroughs/m3.md` |
 | Truffle runtime, benchmarks (M4) | Not started | |
 | Typed API generation (M5) | Not started | |
 | Public fidelity and benchmark pages (M6) | Not started | |

@@ -351,3 +351,19 @@ becomes 0. Both engines must apply it only at the root. It lives in `Operators.f
 Excel kept a tiny result that ours zeroed. 2^-50 removed those and leaves 1 root with "expected zero". No Excel was
 available to test directly, so this threshold fits this corpus and could be wrong elsewhere.
 
+---
+
+## ADR-0017: Incremental recalculation is sound first, and the graph never calculates
+
+**Status:** Accepted (M3). Design: `docs/design/graph.md`.
+
+**Decision.**
+- Precedents come from the AST. Where reads depend on values, the formula is always dirty, with what reads it:
+  `OFFSET`, `INDIRECT`, volatile functions, range operators, and `SUMIF` or `AVERAGEIF` that read beyond their third argument.
+- Both branches of a lazy function count as precedents. That is imprecise and sound.
+- `cellerity-interp` depends on `cellerity-graph`, and `IncrementalWorkbook` joins the graph to the evaluator, so the
+  interpreter and Truffle engines share one implementation.
+- `make recalc` compares with a full recalculation on every corpus workbook, and fails on any disagreement.
+
+**Why.** A wrong "not affected" is a silent wrong answer, and recalculating too much is only slow.
+

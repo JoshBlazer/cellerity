@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "date": "2026-11-06",
+  "files": 781,
+  "leftOutForStaticCycles": 3,
+  "timedOut": 0,
+  "crashed": 0,
+  "changes": 1099,
+  "cellsCompared": 2533277,
+  "disagreements": 0,
+  "evaluatedIncrementally": 88717,
+  "evaluatedByFull": 1421806,
+  "overBudget": 0
+}

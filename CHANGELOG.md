@@ -22,6 +22,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/). No version has 
 - `cellerity verify` with static HTML reports, `cellerity coverage`, and `cellerity eval --set`. `eval` now calculates.
 - `make fidelity`, with aggregate-only corpus results and CI regression gates.
 
+- Dependency graph and incremental recalculation, with cycle detection, reported by `cellerity verify`, and `make recalc`.
+
+### Fixed
+
+- Every cell in a cycle is now marked as a cycle, wherever evaluation starts.
+
 ### Not yet implemented
 
 `bench` and `api`.

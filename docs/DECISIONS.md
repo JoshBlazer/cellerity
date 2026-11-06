@@ -211,7 +211,8 @@ because M0 must list sheets, cells, formulas, and defined names and no other com
 
 ## ADR-0010: M0 `eval` prints cached values only
 
-**Status:** Accepted
+**Status:** Superseded in M2. `eval` now calculates. The principle stands: it refuses to print a result that a
+`--set` could have made stale.
 
 **Decision.** Until M2 there is no evaluator. `cellerity eval --get` prints the stored cached value,
 as the M0 exit check specifies. `--set` exits `1` with a message, because it would require
@@ -289,4 +290,64 @@ not.
 - File names in the manifest include mailbox names, as they do on the public mirror. They are needed to
   fetch each file. Committed results drop file and sheet names.
 - Fidelity on this corpus can differ from `.xlsx`-native behaviour, so results are reported per corpus.
+
+---
+
+## ADR-0014: Cells with nothing to compare are "not comparable"
+
+**Status:** Accepted (M2)
+
+**Context.** The brief lists six mismatch categories. Some cells fit none, because the file holds no valid
+expectation. Counting them as real mismatches would blame the evaluator, and counting them as matches would flatter it.
+
+**Decision.** Add a seventh category, not comparable, with a stated reason per cell. These cells leave the fidelity
+denominator, count against coverage, and are reported with their reasons:
+
+- **Volatile:** a saved `NOW()` or `RAND()` cannot be reproduced.
+- **No cached value.**
+- **Add-in not loaded when saved:** the cell stored `#NAME?` and calls an Analysis ToolPak function. Before Excel 2007
+  these needed an add-in, and a file saved without it stores `#NAME?` in place of an answer. A `#NAME?` on any other
+  function is still a real mismatch.
+- **Reads a cell whose add-in was not loaded:** the cell stored `#NAME?` and directly reads such a cell.
+
+**Measured.** 2,008 of 706,765 Excel-labeled Enron cells have an add-in reason, and 576 are volatile.
+
+---
+
+## ADR-0015: Solvers compare at Microsoft's documented accuracy, with a noise floor near zero
+
+**Status:** Accepted (M2). Changes the provisional tolerance in `docs/design/numerics.md`.
+
+**Context.** On Enron, 8,000 `XIRR` cells differed from Excel with every gap below 1e-8 in absolute terms. Newton's
+method converges quickly, so ours is tighter than Excel's. Microsoft documents `XIRR` as accurate to 0.000001 percent,
+and `IRR` and `RATE` to 0.00001 percent. Separately, `COS(RADIANS(90))` gave 6.1232e-17 against Excel's 6.1257e-17.
+
+**Decision.**
+- When a formula's outermost call is `XIRR`, numbers within 1e-8 absolute count as within tolerance. `IRR` and `RATE`
+  use 1e-7. This does not apply to a solver nested in a larger formula.
+- Everywhere, numbers within 1e-15 absolute count as within tolerance, since they are noise around zero.
+- The relative tolerance of 1e-12 is unchanged. Reports state all of these.
+
+**Why.** The solver figures come from Microsoft's documentation and were not tuned to pass: the observed gaps happen to
+fit inside them. Emulating Excel's stopping rule is not possible, since it is undocumented.
+
+**Cost.** 8,000 cells move from real mismatch to within tolerance, and walkthroughs must say so. A wrong solver answer
+closer than this would be missed.
+
+---
+
+## ADR-0016: A final add or subtract snaps to zero below 2^-50 of its larger operand
+
+**Status:** Accepted (M2), as an estimate from evidence. Implements the hypothesis in `docs/design/numerics.md`.
+
+**Context.** Microsoft documents floating-point artifacts, and it is widely reported that `=0.5-0.4-0.1` shows 0 while
+`=(0.5-0.4-0.1)` does not. The rule itself is not documented. On Enron, plain IEEE arithmetic gave 28 "one is zero"
+mismatches on root additions and subtractions.
+
+**Decision.** When the outermost operation of a formula is `+` or `-`, a result smaller than 2^-50 of the larger operand
+becomes 0. Both engines must apply it only at the root. It lives in `Operators.finalAddOrSubtract`.
+
+**Evidence.** LibreOffice's precedent of 2^-48 reduced those mismatches but added 7 in the lower-trust group, where
+Excel kept a tiny result that ours zeroed. 2^-50 removed those and leaves 1 root with "expected zero". No Excel was
+available to test directly, so this threshold fits this corpus and could be wrong elsewhere.
 

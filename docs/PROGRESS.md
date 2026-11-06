@@ -86,3 +86,25 @@ Limits are in `docs/walkthroughs/m1.md`.
 ### Next
 
 M2: reference interpreter and fidelity harness.
+
+## 2026-11-06: M2
+
+### Done and proven
+
+- Reference interpreter and function library. CLI `verify`, `coverage`, `eval --set`. Static report.
+- Enron: 99.9739% of 340,722 compared, coverage 48.21% of 706,765 (CI run 42241323335). POI: 96.4393%, coverage 84.97%.
+- `make fidelity` gates each corpus against `eval/baseline-fidelity-*.properties`.
+
+Limits are in `docs/walkthroughs/m2.md`.
+
+### Working notes
+
+- The memory guard stopped the local Enron run twice. The maintainer chose to run corpus jobs on GitHub Actions.
+  They take under a minute there. Only compile and unit tests run locally, one at a time.
+- CI logs and artifacts are public. Enron output must stay aggregate. `--detail` is never passed for Enron on CI.
+- Work happens on `milestone/*` branches, which CI also builds, so `main` stays green.
+
+### Next
+
+M3: dependency graph and incremental recalculation.
+

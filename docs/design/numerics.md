@@ -29,8 +29,9 @@ specified:
   whether they are wrapped in parentheses.
 - `=` and other comparisons may treat values as equal if they match to about 15 significant digits.
 
-The plan for M2: start with plain IEEE behaviour, collect mismatches by category from corpus files,
-and add a snap or comparison rule only with evidence. Record each rule in an ADR with its test cases.
+The plan for M2 was to start with plain IEEE behaviour, collect mismatches by category from corpus files,
+and add a snap or comparison rule only with evidence. The corpus supported a snap to zero (ADR-0016). It did not call
+for a comparison rule, so comparisons remain exact.
 
 ## 2. Dates
 
@@ -80,9 +81,10 @@ Defined now so that the harness in M2 cannot adjust them to flatter results. Che
 |---|---|---|
 | Exact match | Same type; numbers equal (with `-0.0` = `0.0`); text equal; same error; both blank | No |
 | Display-only difference | Numbers differ, but are equal when both are rounded to 15 significant digits | No |
-| Within documented tolerance | Numbers differ with `abs(a-b) <= 1e-12 * max(abs(a), abs(b))` | No |
+| Within documented tolerance | Numbers differ with `abs(a-b) <= max(1e-15, 1e-12 * max(abs(a), abs(b)))`, or within a solver's documented accuracy (ADR-0015) | No |
 | Unsupported function | Formula calls a function Cellerity does not implement | No, reported separately |
 | Unsupported feature | Formula uses a feature out of scope for the current version | No, reported separately |
+| Not comparable | The file holds no valid expectation, with a stated reason (ADR-0014) | No, reported separately |
 | Real mismatch | Anything else, including every type mismatch | **Yes** |
 
 Rules that keep this honest:
@@ -90,8 +92,8 @@ Rules that keep this honest:
 - Every report states the count of each category. Fidelity is never shown without coverage, since a
   workbook of unsupported formulas would otherwise score 100%.
 - Fidelity = (matches of the first three categories) / (those plus real mismatches).
-- The `1e-12` tolerance is a provisional number. Any change needs an ADR, and reports state the value
-  in use. M2 also reports how many cells depend on tolerance rather than an exact match.
+- The tolerances are provisional. Any change needs an ADR, and reports state the values in use and how
+  many cells depend on tolerance rather than an exact match.
 
 ## 5. Trust in ground truth
 

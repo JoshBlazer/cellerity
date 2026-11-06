@@ -2,9 +2,10 @@
 
 **Run your Excel model as a JIT-compiled Java service, and prove it matches Excel.**
 
-> **Status: early development.** Cellerity reads workbooks today. It **does not evaluate formulas yet**:
-> `cellerity eval` prints the values Excel stored in the file. There are no releases, and none of the
-> speed or fidelity goals below has been measured.
+> **Status: early development.** Cellerity calculates workbooks with a reference interpreter and measures the
+> result against the values Excel stored. On the Enron corpus, fidelity is 99.97% of the **48.21%** of formula cells it
+> could compare ([what that means](docs/walkthroughs/m2.md)). There is no JIT runtime yet, there are no releases,
+> and no speed has been measured.
 
 Banks, insurers, and pricing teams run critical logic in Excel, and engineers need those models inside
 Java systems. Cellerity's goal is to compile a workbook's formulas into a GraalVM Truffle runtime, with
@@ -33,7 +34,13 @@ with Java 25, and runs the corpus checks on Ubuntu with Java 25.
 | Round-trip property tests (**M1 exit check**) | Proven | `./gradlew :cellerity-formula:test` |
 | CI fails if the parse rate regresses | Proven | `make eval` with `eval/baseline-*.properties` |
 | **M1 complete** | **Done, pending maintainer review** | `docs/walkthroughs/m1.md` |
-| Formula evaluation, `verify`, `coverage`, fidelity (M2) | Not started | |
+| `cellerity verify` reports fidelity with coverage (**M2 exit check**) | Proven | `cellerity verify corpus/samples/poi/VLookupFullColumn.xlsx --report r.html`, run in `build.yml` |
+| Enron fidelity, excluding external links (**M2 exit check**) | 99.9739% of 340,722 compared; coverage 48.21% of 706,765 formula cells | `make fidelity-enron`; `eval/results/2026-11-06-m2-fidelity-enron.json` |
+| POI fidelity, a torture test and not real-world usage | 96.4393% of 23,956 compared; coverage 84.97% | `make fidelity-poi` |
+| Function coverage | 98.36% of Enron's 299,996 calls | `make fidelity-enron` |
+| `--set` recalculates | Proven | `cellerity eval corpus/samples/synthetic/sample.xlsx --set CoverAmount=1000 --get 'Sheet1!B2'` prints 35 |
+| CI fails if fidelity regresses | Proven | `make fidelity` with `eval/baseline-fidelity-*.properties`; `FidelityBaselineTest` |
+| **M2 complete** | **Done, pending maintainer review** | `docs/walkthroughs/m2.md` |
 | Incremental recalculation (M3) | Not started | |
 | Truffle runtime, benchmarks (M4) | Not started | |
 | Typed API generation (M5) | Not started | |
@@ -41,12 +48,14 @@ with Java 25, and runs the corpus checks on Ubuntu with Java 25.
 
 ## Honest limits today
 
-- **No formula evaluation.** `--set` exits with code `1` rather than print a stale value.
+- **Fidelity is measured on what could be compared.** About half of Enron's Excel-labeled formula cells read other
+  workbooks, and external links are out of scope. The evaluator was also fixed while looking at this corpus, so a new
+  corpus can be expected to score lower. Read [the M2 walkthrough](docs/walkthroughs/m2.md) before quoting a number.
+- **Not implemented:** 3D, union, and structured references, data tables, and some functions and `TEXT` formats. These
+  are reported as unsupported, or give `#VALUE!`, instead of being guessed.
 - **`.xlsx` and `.xlsm` only.** Legacy `.xls`, encrypted files, and `.xlsb` are rejected.
-- **The corpus is not real-world.** It is Apache POI's test data, mostly bug reproductions and fuzzer
-  output. The POI cross-check shows that our reader decodes files as another mature reader does. It does
-  not show fidelity to Excel. The real-world corpus is decided but not built yet
-  ([ADR-0013](docs/DECISIONS.md)).
+- **Two corpora mean different things.** POI's test data is mostly bug reproductions and fuzzer output, not real-world
+  usage. The cleaned Enron subset is real-world but small, old, and `.xls` ([ADR-0013](docs/DECISIONS.md)).
 - **Some files are strictly rejected.** A file POI can read may be rejected here if a value would have to
   be guessed ([ADR-0012](docs/DECISIONS.md)).
 - **Not everything was cross-checked.** POI could not read 7 of the files we load, including Strict OOXML.
@@ -61,7 +70,9 @@ Needs Java 21 or newer.
 alias cellerity=cellerity-cli/build/install/cellerity/bin/cellerity
 
 cellerity eval corpus/samples/synthetic/sample.xlsx --get 'Sheet1!A1'     # 42
-cellerity eval corpus/samples/synthetic/sample.xlsx --get CoverAmount     # 50000
+cellerity eval corpus/samples/synthetic/sample.xlsx --set CoverAmount=1000 --get 'Sheet1!B2'     # 35
+cellerity verify corpus/samples/poi/shared_formulas.xlsx --report report.html
+cellerity coverage corpus/samples/poi/shared_formulas.xlsx
 cellerity inspect corpus/samples/poi/shared_formulas.xlsx
 ```
 
@@ -71,6 +82,7 @@ Corpus checks need `make` and network access for the first download:
 
 ```
 make eval
+make fidelity
 make crosscheck
 ```
 

@@ -8,3 +8,6 @@ out/
 corpus/downloads/
 # The working copy of the latest run. Dated copies in eval/results/ are the history.
 eval/results/latest-*
+
+# jqwik run state
+.jqwik-database

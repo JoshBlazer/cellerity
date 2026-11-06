@@ -17,6 +17,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/). No version has 
   expansion.
 - Real-world corpus tier from cleaned Enron files, parse-rate reporting, and CI regression gates.
 
+- Reference interpreter and a shared function library, with array formulas, implicit intersection, cycle detection,
+  and Excel's lazy functions.
+- `cellerity verify` with static HTML reports, `cellerity coverage`, and `cellerity eval --set`. `eval` now calculates.
+- `make fidelity`, with aggregate-only corpus results and CI regression gates.
+
 ### Not yet implemented
 
-Formula evaluation, `verify`, `coverage`, `bench`, and `api`.
+`bench` and `api`.

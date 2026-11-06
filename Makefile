@@ -31,7 +31,7 @@ fidelity-poi: corpus
 
 # Changes inputs on every corpus workbook, and compares incremental results with a full recalculation.
 recalc: corpus
-	./gradlew :cellerity-eval:recalc -PfidelityHeap=$(FIDELITY_HEAP) -PrecalcArgs="--corpus corpus/downloads/enron-nuix --corpus corpus/downloads/poi --corpus corpus/samples --min-changes 500"
+	./gradlew :cellerity-eval:recalc -PfidelityHeap=$(FIDELITY_HEAP) -PrecalcArgs="--corpus corpus/downloads/enron-nuix --corpus corpus/downloads/poi --corpus corpus/samples --min-changes 1000 --out eval/results/latest-recalc.json"
 
 # Compares our reader with Apache POI, then proves the corpus was not modified by doing so.
 crosscheck: corpus

@@ -43,7 +43,7 @@ public final class RecalcCheck {
   private long cellsCompared;
   private long disagreements;
   private long evaluated;
-  private long formulasAtRisk;
+  private long evaluatedByFull;
   private long overBudget;
 
   private RecalcCheck() {}
@@ -51,11 +51,13 @@ public final class RecalcCheck {
   public static void main(String[] args) throws IOException, InterruptedException {
     RecalcCheck check = new RecalcCheck();
     long minChanges = 0;
+    Path out = null;
     List<Path> roots = new ArrayList<>();
     for (int i = 0; i + 1 < args.length; i += 2) {
       switch (args[i]) {
         case "--corpus" -> roots.add(Path.of(args[i + 1]));
         case "--min-changes" -> minChanges = Long.parseLong(args[i + 1]);
+        case "--out" -> out = Path.of(args[i + 1]);
         default -> {
           System.err.println("Unknown argument: " + args[i]);
           System.exit(2);
@@ -86,7 +88,7 @@ public final class RecalcCheck {
         Locale.ROOT,
         "recalc: %d files, %d left out for static cycles, %d timed out, %d crashed%n"
             + "%d changes, %d formula cells compared, %d disagreements%n"
-            + "evaluated %d of %d formulas a full recalculation would (%.2f%%), %d over budget%n",
+            + "evaluated %d formulas, where full recalculations evaluated %d (%.2f%%), %d over budget%n",
         check.files,
         check.skippedForCycles,
         check.timedOut,
@@ -95,9 +97,42 @@ public final class RecalcCheck {
         check.cellsCompared,
         check.disagreements,
         check.evaluated,
-        check.formulasAtRisk,
-        check.formulasAtRisk == 0 ? 0.0 : 100.0 * check.evaluated / check.formulasAtRisk,
+        check.evaluatedByFull,
+        check.evaluatedByFull == 0 ? 0.0 : 100.0 * check.evaluated / check.evaluatedByFull,
         check.overBudget);
+    if (out != null) {
+      Files.writeString(
+          out,
+          String.format(
+              Locale.ROOT,
+              """
+              {
+                "schema": 1,
+                "date": "%s",
+                "files": %d,
+                "leftOutForStaticCycles": %d,
+                "timedOut": %d,
+                "crashed": %d,
+                "changes": %d,
+                "cellsCompared": %d,
+                "disagreements": %d,
+                "evaluatedIncrementally": %d,
+                "evaluatedByFull": %d,
+                "overBudget": %d
+              }
+              """,
+              java.time.LocalDate.now(java.time.ZoneOffset.UTC),
+              check.files,
+              check.skippedForCycles,
+              check.timedOut,
+              check.crashed,
+              check.changes,
+              check.cellsCompared,
+              check.disagreements,
+              check.evaluated,
+              check.evaluatedByFull,
+              check.overBudget));
+    }
     boolean ok =
         check.disagreements == 0
             && check.overBudget == 0
@@ -145,11 +180,12 @@ public final class RecalcCheck {
       full.set(input.sheet(), input.at(), changed);
       changes++;
       evaluated += done.evaluated();
-      formulasAtRisk += graph.formulas().size();
       if (done.evaluated() > budget) {
         overBudget++;
       }
+      long fullBefore = full.evaluations();
       compareAll(workbook, parsed, incremental, full);
+      evaluatedByFull += full.evaluations() - fullBefore;
     }
   }
 

@@ -1,2 +1,2 @@
-/** Dependency graph and incremental recalculation. Placeholder: implemented in milestone M3. */
+/** Dependency graph and incremental recalculation.. */
 package io.github.joshblazer.cellerity.graph;

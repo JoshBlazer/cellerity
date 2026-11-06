@@ -40,6 +40,8 @@ jobs:
       # Logs and artifacts are public. Only POI's public test data gets a detail file, never Enron
       # (ADR-0013).
       - run: make -k fidelity FIDELITY_HEAP=8g
+      - name: Incremental recalculation agrees with a full one
+        run: make recalc FIDELITY_HEAP=8g
       - uses: actions/upload-artifact@v7
         if: always()
         with:

@@ -121,12 +121,30 @@ public final class WorkbookEvaluator implements Workspace {
 
   /** Replaces a cell's content with a value, and forgets everything calculated so far. */
   public void set(int sheet, CellRef at, Value value) {
-    overrides.put(new Key(sheet, at), value);
-    lastRows[sheet] = Math.max(lastRows[sheet], at.row());
-    lastColumns[sheet] = Math.max(lastColumns[sheet], at.column());
+    override(sheet, at, value);
     memo.clear();
     arrays.clear();
     cyclic.clear();
+  }
+
+  /** Replaces a cell's content, leaving it to the caller to forget what that affects. */
+  void override(int sheet, CellRef at, Value value) {
+    overrides.put(new Key(sheet, at), value);
+    lastRows[sheet] = Math.max(lastRows[sheet], at.row());
+    lastColumns[sheet] = Math.max(lastColumns[sheet], at.column());
+  }
+
+  /** Forgets what was calculated for one cell. */
+  void forget(int sheet, CellRef at) {
+    Key key = new Key(sheet, at);
+    memo.remove(key);
+    arrays.remove(key);
+    cyclic.remove(key);
+  }
+
+  /** The clock moves on between recalculations, as in Excel. */
+  void startRecalculation() {
+    nowSerial = Double.NaN;
   }
 
   /** How many formulas have been evaluated, for tests that count work. */

@@ -168,6 +168,11 @@ public final class ParsedWorkbook {
     return formulas.get(sheetIndex);
   }
 
+  /** Non-master members of array ranges on a sheet, each with its master. */
+  public Map<CellRef, CellRef> arrayMembers(int sheetIndex) {
+    return java.util.Collections.unmodifiableMap(arrayMembers.get(sheetIndex));
+  }
+
   /** The master cell of the array range containing this cell, if it is a non-master member. */
   public Optional<CellRef> arrayMaster(int sheetIndex, CellRef cell) {
     return Optional.ofNullable(arrayMembers.get(sheetIndex).get(cell));

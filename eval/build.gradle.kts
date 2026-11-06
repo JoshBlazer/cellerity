@@ -7,6 +7,7 @@ dependencies {
     implementation(project(":cellerity-core"))
     implementation(project(":cellerity-io"))
     implementation(project(":cellerity-formula"))
+    implementation(project(":cellerity-graph"))
     implementation(project(":cellerity-interp"))
     implementation(project(":cellerity-report"))
     // Independent check of the reader only (ADR-0011). Never used by a published module.
@@ -30,6 +31,15 @@ tasks.register<JavaExec>("fidelity") {
     workingDir = rootDir
     maxHeapSize = providers.gradleProperty("fidelityHeap").getOrElse("2g")
     args(providers.gradleProperty("fidelityArgs").orNull?.split(" ") ?: emptyList<String>())
+}
+
+// Compares incremental recalculation with a full one, on every corpus workbook.
+tasks.register<JavaExec>("recalc") {
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass = "${project.group}.cellerity.eval.RecalcCheck"
+    workingDir = rootDir
+    maxHeapSize = providers.gradleProperty("fidelityHeap").getOrElse("2g")
+    args(providers.gradleProperty("recalcArgs").orNull?.split(" ") ?: emptyList<String>())
 }
 
 // Compares what our reader stores with what Apache POI reads from the same files.

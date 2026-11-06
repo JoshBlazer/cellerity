@@ -4,6 +4,8 @@ import io.github.joshblazer.cellerity.core.CellRef;
 import io.github.joshblazer.cellerity.core.Coercion;
 import io.github.joshblazer.cellerity.core.Value;
 import io.github.joshblazer.cellerity.formula.ParsedWorkbook;
+import io.github.joshblazer.cellerity.graph.CellKey;
+import io.github.joshblazer.cellerity.graph.DependencyGraph;
 import io.github.joshblazer.cellerity.interp.Category;
 import io.github.joshblazer.cellerity.interp.Coverage;
 import io.github.joshblazer.cellerity.interp.Interpreter;
@@ -29,6 +31,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.OptionalDouble;
 import java.util.OptionalInt;
+import java.util.stream.Collectors;
 
 /** Entry point. Exit codes: 0 clean, 1 mismatches or unsupported features, 2 Cellerity error. */
 public final class Main {
@@ -293,6 +296,7 @@ public final class Main {
     r.unsupportedFunctions().forEach((name, n) -> out.println("function " + name + ": " + n));
     r.unsupportedFeatures().forEach((name, n) -> out.println("feature " + name + ": " + n));
     r.notComparable().forEach((why, n) -> out.println("not comparable, " + why + ": " + n));
+    reportCycles(parsed);
     r.mismatches().stream()
         .limit(MISMATCHES_PRINTED)
         .forEach(m ->
@@ -325,6 +329,27 @@ public final class Main {
             && r.count(Category.UNSUPPORTED_FUNCTION) == 0
             && r.count(Category.UNSUPPORTED_FEATURE) == 0;
     return clean ? OK : UNSUPPORTED;
+  }
+
+  private void reportCycles(ParsedWorkbook parsed) {
+    WorkbookEvaluator names = new WorkbookEvaluator(parsed);
+    List<List<CellKey>> cycles = DependencyGraph.build(parsed, names::name).cycles();
+    if (cycles.isEmpty()) {
+      return;
+    }
+    // Static: a loop through an untaken IF branch never happens when calculating.
+    out.println("possible cycles: " + cycles.size());
+    List<Sheet> sheets = parsed.workbook().sheets();
+    cycles.stream()
+        .limit(MISMATCHES_PRINTED)
+        .forEach(cycle ->
+            out.println(
+                singleLine(
+                    "  "
+                        + cycle.stream()
+                            .limit(MISMATCHES_PRINTED)
+                            .map(k -> sheets.get(k.sheet()).name() + "!" + k.at().toA1())
+                            .collect(Collectors.joining(" -> ")))));
   }
 
   private int coverage(List<String> args) {

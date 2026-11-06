@@ -1,4 +1,4 @@
-.PHONY: build test format corpus eval fidelity fidelity-enron fidelity-poi crosscheck dist
+.PHONY: build test format corpus eval fidelity fidelity-enron fidelity-poi recalc crosscheck dist
 
 FIDELITY_HEAP ?= 2g
 
@@ -28,6 +28,10 @@ fidelity-enron: corpus
 
 fidelity-poi: corpus
 	./gradlew :cellerity-eval:fidelity -PfidelityHeap=$(FIDELITY_HEAP) -PfidelityArgs="--corpus corpus/downloads/poi --corpus corpus/samples --out eval/results/latest-fidelity-poi.json --report eval/results/latest-report-poi.html --detail eval/results/latest-detail-poi.tsv --baseline eval/baseline-fidelity-poi.properties"
+
+# Changes inputs on every corpus workbook, and compares incremental results with a full recalculation.
+recalc: corpus
+	./gradlew :cellerity-eval:recalc -PfidelityHeap=$(FIDELITY_HEAP) -PrecalcArgs="--corpus corpus/downloads/enron-nuix --corpus corpus/downloads/poi --corpus corpus/samples --min-changes 500"
 
 # Compares our reader with Apache POI, then proves the corpus was not modified by doing so.
 crosscheck: corpus

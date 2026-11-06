@@ -81,7 +81,12 @@ public final class CorpusLoad {
         result.writers());
     result.failures().stream()
         .filter(f -> f.outcome().equals("CRASH"))
-        .forEach(f -> System.out.println("CRASH " + f.file() + ": " + f.message()));
+        .forEach(f ->
+            // CI logs are public, and corpus results are aggregates only (ADR-0013).
+            System.out.println(
+                System.getenv("CI") == null
+                    ? "CRASH " + f.file() + ": " + f.message()
+                    : "CRASH (file withheld from public logs)"));
     System.out.printf(
         Locale.ROOT,
         "parse: %d of %d formula cells (%.4f%%), %d failed, %d do not round-trip, %d data tables%n",
@@ -130,7 +135,7 @@ public final class CorpusLoad {
     return tally.result();
   }
 
-  private static Workbook readAny(Path file) throws XlsxReadException {
+  static Workbook readAny(Path file) throws XlsxReadException {
     String name = file.getFileName().toString().toLowerCase(Locale.ROOT);
     return name.endsWith(".xls") ? HssfWorkbooks.read(file) : XlsxReader.read(file);
   }

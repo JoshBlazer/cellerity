@@ -1,0 +1,194 @@
+package io.github.joshblazer.cellerity.interp;
+
+import io.github.joshblazer.cellerity.core.CellRef;
+import io.github.joshblazer.cellerity.core.Coercion;
+import io.github.joshblazer.cellerity.core.FunctionError;
+import io.github.joshblazer.cellerity.core.Value;
+import io.github.joshblazer.cellerity.formula.Expr;
+import io.github.joshblazer.cellerity.formula.Exprs;
+import io.github.joshblazer.cellerity.formula.FormulaPrinter;
+import io.github.joshblazer.cellerity.formula.ParsedFormula;
+import io.github.joshblazer.cellerity.formula.ParsedWorkbook;
+import io.github.joshblazer.cellerity.io.Cell;
+import io.github.joshblazer.cellerity.io.Sheet;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+
+/** Checks every formula cell of a workbook against Excel's cached value. */
+public final class Verifier {
+  private Verifier() {}
+
+  /** Runs the check with the reference interpreter. */
+  public static VerifyResult verify(ParsedWorkbook workbook, int mismatchLimit) {
+    return verify(workbook, new WorkbookEvaluator(workbook), mismatchLimit);
+  }
+
+  /** Runs the check with a given evaluator. */
+  public static VerifyResult verify(
+      ParsedWorkbook workbook, WorkbookEvaluator evaluator, int mismatchLimit) {
+    VerifyResult result = new VerifyResult(mismatchLimit);
+    List<Sheet> sheets = workbook.workbook().sheets();
+    List<Pending> pending = new ArrayList<>();
+    for (int s = 0; s < sheets.size(); s++) {
+      Sheet sheet = sheets.get(s);
+      for (Cell cell : sheet.cells().values()) {
+        Optional<CellRef> master = workbook.arrayMaster(s, cell.ref());
+        ParsedFormula formula =
+            workbook.formulas(s).get(master.isPresent() ? master.get() : cell.ref());
+        if (formula != null) {
+          check(s, sheet.name(), cell, formula, evaluator.outcome(s, cell.ref()), result, pending);
+        }
+      }
+    }
+    report(pending, sheets, result);
+    return result;
+  }
+
+  private record Pending(
+      int sheetIndex, String sheet, CellRef ref, Expr expr, Value expected, Value actual) {}
+
+  /** Runs after all cells are checked, since a root is a cell reading no other wrong cell. */
+  private static void report(List<Pending> pending, List<Sheet> sheets, VerifyResult result) {
+    Map<Integer, Set<CellRef>> wrong = new HashMap<>();
+    for (Pending p : pending) {
+      wrong.computeIfAbsent(p.sheetIndex(), k -> new HashSet<>()).add(p.ref());
+    }
+    for (Pending p : pending) {
+      result.mismatch(
+          new VerifyResult.Mismatch(
+              p.sheet(),
+              p.ref().toA1(),
+              FormulaPrinter.print(p.expr()),
+              show(p.expected()),
+              show(p.actual()),
+              outermost(p.expr()),
+              MismatchPattern.of(p.expr(), p.expected(), p.actual()),
+              !readsWrongCell(p, sheets, wrong)));
+    }
+  }
+
+  private static boolean readsWrongCell(
+      Pending p, List<Sheet> sheets, Map<Integer, Set<CellRef>> wrong) {
+    return Exprs.any(
+        p.expr(),
+        node ->
+            switch (node) {
+              case Expr.Cell c -> overlaps(p, sheets, wrong, c.scope(), c.at(), c.at());
+              case Expr.Area a -> overlaps(p, sheets, wrong, a.scope(), a.from(), a.to());
+              default -> false;
+            });
+  }
+
+  private static boolean overlaps(
+      Pending p,
+      List<Sheet> sheets,
+      Map<Integer, Set<CellRef>> wrong,
+      Expr.Scope scope,
+      Expr.Endpoint from,
+      Expr.Endpoint to) {
+    Set<CellRef> cells = wrong.get(sheetIndex(p.sheetIndex(), sheets, scope));
+    if (cells == null) {
+      return false;
+    }
+    int left = from.wholeRow() ? 1 : Math.min(from.col(), to.col());
+    int right = from.wholeRow() ? CellRef.MAX_COLUMN : Math.max(from.col(), to.col());
+    int top = from.wholeColumn() ? 1 : Math.min(from.row(), to.row());
+    int bottom = from.wholeColumn() ? CellRef.MAX_ROW : Math.max(from.row(), to.row());
+    for (CellRef cell : cells) {
+      if (!cell.equals(p.ref())
+          && cell.column() >= left
+          && cell.column() <= right
+          && cell.row() >= top
+          && cell.row() <= bottom) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static int sheetIndex(int home, List<Sheet> sheets, Expr.Scope scope) {
+    if (scope.external() || scope.threeD()) {
+      return -1;
+    }
+    if (scope.sheet().isEmpty()) {
+      return home;
+    }
+    for (int i = 0; i < sheets.size(); i++) {
+      if (sheets.get(i).name().equalsIgnoreCase(scope.sheet().get())) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  private static void check(
+      int sheetIndex,
+      String sheet,
+      Cell cell,
+      ParsedFormula formula,
+      WorkbookEvaluator.Outcome outcome,
+      VerifyResult result,
+      List<Pending> pending) {
+    switch (outcome.status()) {
+      case UNSUPPORTED_FEATURE -> {
+        result.add(Category.UNSUPPORTED_FEATURE);
+        result.unsupportedFeature(outcome.detail());
+        return;
+      }
+      case UNSUPPORTED_FUNCTION -> {
+        result.add(Category.UNSUPPORTED_FUNCTION);
+        result.unsupportedFunction(outcome.detail());
+        return;
+      }
+      case VOLATILE -> {
+        result.add(Category.NOT_COMPARABLE);
+        return;
+      }
+      default -> {}
+    }
+    if (cell.value().isEmpty()) {
+      result.add(Category.NOT_COMPARABLE);
+      return;
+    }
+    Category category = Comparison.compare(cell.value().get(), outcome.value());
+    result.add(category);
+    if (outcome.usedCachedInput()) {
+      result.usedCachedInput(true);
+    }
+    if (category == Category.REAL_MISMATCH) {
+      pending.add(
+          new Pending(
+              sheetIndex, sheet, cell.ref(), formula.expr(), cell.value().get(), outcome.value()));
+    }
+  }
+
+  private static String outermost(Expr expr) {
+    List<String> names = Exprs.functionNames(expr);
+    return names.isEmpty()
+        ? ""
+        : new Expr.Call(names.get(0), List.of(), io.github.joshblazer.cellerity.formula.Span.NONE)
+            .canonicalName();
+  }
+
+  private static String show(Value value) {
+    return switch (value) {
+      case Value.Num n -> Double.toString(n.value());
+      case Value.Text t -> "\"" + t.value() + "\"";
+      case Value.Bool b -> b.value() ? "TRUE" : "FALSE";
+      case Value.Err e -> e.error().code();
+      case Value.Blank b -> "(blank)";
+      case Value.Grid g -> {
+        try {
+          yield "{" + Coercion.toText(g) + "...}";
+        } catch (FunctionError e) {
+          yield "{array}";
+        }
+      }
+    };
+  }
+}

@@ -1,4 +1,6 @@
-.PHONY: build test format corpus eval crosscheck dist
+.PHONY: build test format corpus eval fidelity fidelity-enron fidelity-poi crosscheck dist
+
+FIDELITY_HEAP ?= 2g
 
 build:
 	./gradlew build
@@ -17,6 +19,15 @@ corpus:
 eval: corpus
 	./gradlew :cellerity-eval:run --args="--corpus corpus/downloads/poi --corpus corpus/samples --out eval/results/latest-corpus-load.json --baseline eval/baseline-poi.properties"
 	./gradlew :cellerity-eval:run --args="--corpus corpus/downloads/enron-nuix --out eval/results/latest-enron.json --baseline eval/baseline-enron.properties"
+
+# Compares calculated values with the values stored in the files. Output is aggregates only (ADR-0013).
+fidelity: fidelity-enron fidelity-poi
+
+fidelity-enron: corpus
+	./gradlew :cellerity-eval:fidelity -PfidelityHeap=$(FIDELITY_HEAP) -PfidelityArgs="--corpus corpus/downloads/enron-nuix --out eval/results/latest-fidelity-enron.json"
+
+fidelity-poi: corpus
+	./gradlew :cellerity-eval:fidelity -PfidelityHeap=$(FIDELITY_HEAP) -PfidelityArgs="--corpus corpus/downloads/poi --corpus corpus/samples --out eval/results/latest-fidelity-poi.json"
 
 # Compares our reader with Apache POI, then proves the corpus was not modified by doing so.
 crosscheck: corpus

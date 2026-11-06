@@ -2,7 +2,7 @@ name: eval
 
 on:
   push:
-    branches: [main]
+    branches: [main, "milestone/**"]
   pull_request:
 
 permissions:
@@ -26,3 +26,21 @@ jobs:
         with:
           name: corpus-load
           path: eval/results/latest-*.json
+
+  fidelity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "25"
+      - uses: gradle/actions/setup-gradle@v6
+      # The log and artifact are public, so this passes no --detail file (ADR-0013).
+      - run: make -k fidelity FIDELITY_HEAP=8g
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: fidelity
+          path: eval/results/latest-fidelity-*.json

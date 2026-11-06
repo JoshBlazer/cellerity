@@ -89,6 +89,7 @@ public final class WorkbookEvaluator implements Workspace {
   private final Map<Key, Value> arrays = new HashMap<>();
   private final Map<Key, Value> overrides = new HashMap<>();
   private final Set<Key> inProgress = new HashSet<>();
+  private final Deque<Key> chain = new ArrayDeque<>();
   private final Set<Key> cyclic = new HashSet<>();
   private final Map<String, Optional<Expr>> names = new HashMap<>();
   private final Random random = new Random();
@@ -180,11 +181,22 @@ public final class WorkbookEvaluator implements Workspace {
           pending.push(deep.cell);
         } else {
           // A cell that is already waiting came round again: only a cycle does that.
-          cyclic.add(deep.cell);
+          markCycle(pending, deep.cell);
           memo.put(deep.cell, cycleOutcome(deep.cell));
         }
       }
     }
+  }
+
+  /** Marks every cell from the top of a chain down to the one that came round again. */
+  private void markCycle(Deque<Key> cells, Key reentered) {
+    for (Key cell : cells) {
+      cyclic.add(cell);
+      if (cell.equals(reentered)) {
+        return;
+      }
+    }
+    cyclic.add(reentered);
   }
 
   private Outcome cycleOutcome(Key key) {
@@ -239,7 +251,7 @@ public final class WorkbookEvaluator implements Workspace {
       return new Outcome(stored, Status.STORED, "", false);
     }
     if (inProgress.contains(key)) {
-      cyclic.add(key);
+      markCycle(chain, key);
       tainted = true;
       return cycleOutcome(key);
     }
@@ -249,12 +261,14 @@ public final class WorkbookEvaluator implements Workspace {
     boolean outerTaint = tainted;
     tainted = false;
     inProgress.add(key);
+    chain.push(key);
     depth++;
     Outcome outcome;
     try {
       outcome = calculate(key, formula);
     } finally {
       depth--;
+      chain.pop();
       inProgress.remove(key);
     }
     if (cyclic.contains(key)) {

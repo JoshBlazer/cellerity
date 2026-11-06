@@ -88,6 +88,39 @@ class ReferenceSemanticsTest {
   }
 
   @Test
+  void everyCellInACycleIsMarkedWhereverEvaluationStarts() {
+    var parsed =
+        io.github.joshblazer.cellerity.formula.ParsedWorkbook.of(
+            TestBooks.workbook(Map.of("A1", "=B1+1", "B1", "=C1+1", "C1", "=A1+1")));
+    for (String start : java.util.List.of("A1", "B1", "C1")) {
+      WorkbookEvaluator evaluator = new WorkbookEvaluator(parsed);
+      evaluator.value(0, io.github.joshblazer.cellerity.core.CellRef.parse(start).orElseThrow());
+      for (String cell : java.util.List.of("A1", "B1", "C1")) {
+        assertEquals(
+            "cycle",
+            evaluator
+                .outcome(0, io.github.joshblazer.cellerity.core.CellRef.parse(cell).orElseThrow())
+                .detail(),
+            start + " then " + cell);
+      }
+    }
+  }
+
+  @Test
+  void aLongCycleIsFoundWithoutOverflowing() {
+    Map<String, Object> cells = new java.util.HashMap<>();
+    for (int i = 2; i <= 5_000; i++) {
+      cells.put("A" + i, "=A" + (i - 1) + "+1");
+    }
+    cells.put("A1", "=A5000+1");
+    WorkbookEvaluator evaluator =
+        new WorkbookEvaluator(
+            io.github.joshblazer.cellerity.formula.ParsedWorkbook.of(TestBooks.workbook(cells)));
+    var a4000 = io.github.joshblazer.cellerity.core.CellRef.parse("A4000").orElseThrow();
+    assertEquals("cycle", evaluator.outcome(0, a4000).detail());
+  }
+
+  @Test
   void anUntakenBranchIsNotEvaluated() {
     assertEquals(num(1), eval(Map.of("A1", "=IF(TRUE,1,A1)"), "A1"));
   }

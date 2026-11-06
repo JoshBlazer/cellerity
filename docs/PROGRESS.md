@@ -134,6 +134,7 @@ M4: Truffle runtime and benchmarks.
 
 - Truffle engine. `make differential`: 0 disagreements in 860,666 formula cells, on Temurin and on GraalVM CE (3,677 compilations, 0 failures).
 - JMH against POI, published in `docs/benchmarks/README.md`, from CI runs on a shared runner: `bench` 42251602885, `eval` 42251602610 on `02b8ab3`.
+- CI green on `2184f2b`: `build` run 42257460414 and `eval` run 42257460486.
 - M1 to M4, as the maintainer asked.
 
 ### Finding

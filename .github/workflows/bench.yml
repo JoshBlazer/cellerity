@@ -1,0 +1,54 @@
+name: bench
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["milestone/**"]
+
+permissions:
+  contents: read
+
+jobs:
+  graalvm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+      # The build and tests use Temurin. GraalVM CE is the JDK that runs the result (ADR-0006).
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "25"
+      - uses: gradle/actions/setup-gradle@v6
+      - uses: graalvm/setup-graalvm@v1
+        with:
+          distribution: graalvm-community
+          java-version: "25"
+          set-java-home: false
+      - run: ./gradlew :cellerity-truffle:probeLibs
+      - name: Probe on the class path
+        shell: bash
+        run: |
+          "$GRAALVM_HOME/bin/java" -Dpolyglot.engine.TraceCompilation=true \
+            -cp 'cellerity-truffle/build/probe/lib/*' \
+            io.github.joshblazer.cellerity.truffle.TruffleProbe 2>&1 | tee probe-classpath.txt | grep -E "opt done|truffle runtime|java:|recalculations|WARNING|Error" | head -30
+      - name: Probe on the module path
+        shell: bash
+        run: |
+          mkdir -p modules app
+          cp cellerity-truffle/build/probe/lib/*.jar app/
+          for jar in app/*.jar; do
+            case "$(basename "$jar")" in
+              truffle-*|polyglot-*|collections-*|word-*|nativeimage-*|jniutils-*|nativebridge-*|compiler-*) mv "$jar" modules/ ;;
+            esac
+          done
+          ls modules
+          "$GRAALVM_HOME/bin/java" -Dpolyglot.engine.TraceCompilation=true \
+            --module-path modules --add-modules org.graalvm.truffle,org.graalvm.truffle.runtime \
+            -cp 'app/*' \
+            io.github.joshblazer.cellerity.truffle.TruffleProbe 2>&1 | tee probe-modulepath.txt | grep -E "opt done|truffle runtime|java:|recalculations|WARNING|Error" | head -30
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: truffle-probe
+          path: probe-*.txt

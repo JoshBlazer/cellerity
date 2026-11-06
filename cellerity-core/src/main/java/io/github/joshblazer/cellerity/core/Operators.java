@@ -79,7 +79,8 @@ public final class Operators {
     };
   }
 
-  private static Value number(double value) {
+  /** A number as a value: an invalid result becomes an error. */
+  public static Value number(double value) {
     if (value == Double.NEGATIVE_INFINITY) {
       return new Value.Err(ExcelError.DIV0);
     }

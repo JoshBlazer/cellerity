@@ -7,8 +7,17 @@ dependencies {
     runtimeOnly(libs.truffle.runtime)
 }
 
-// The differential reuses the interpreter's workbook builder rather than copy it.
-sourceSets.test {
-    java.srcDir("../cellerity-interp/src/test/java")
-    java.include("**/TestBooks.java", "**/TruffleDifferentialTest.java")
+// Evidence for ADR-0006: which runtime this JDK gives, and whether formulas compile.
+tasks.register<Sync>("probeLibs") {
+    from(sourceSets["main"].runtimeClasspath)
+    into(layout.buildDirectory.dir("probe/lib"))
 }
+
+// The differential reuses the interpreter's workbook builder, so the two tests cannot drift apart.
+val testBooks = tasks.register<Sync>("testBooks") {
+    from("../cellerity-interp/src/test/java") { include("**/TestBooks.java") }
+    into(layout.buildDirectory.dir("generated/testBooks"))
+}
+sourceSets.test { java.srcDir(testBooks) }
+
+spotless { java { target("src/**/*.java") } }

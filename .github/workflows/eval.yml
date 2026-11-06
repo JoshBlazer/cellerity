@@ -42,6 +42,8 @@ jobs:
       - run: make -k fidelity FIDELITY_HEAP=8g
       - name: Incremental recalculation agrees with a full one
         run: make recalc FIDELITY_HEAP=8g
+      - name: Truffle agrees with the interpreter
+        run: make differential FIDELITY_HEAP=8g
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -49,5 +51,6 @@ jobs:
           path: |
             eval/results/latest-fidelity-*.json
             eval/results/latest-recalc.json
+            eval/results/latest-differential.json
             eval/results/latest-report-*.html
             eval/results/latest-detail-poi.tsv

@@ -55,12 +55,25 @@ public final class Interpreter implements FormulaEngine {
     return b.op() == Expr.BinaryOp.ADD || b.op() == Expr.BinaryOp.SUBTRACT;
   }
 
-  private static Value finish(Value result, Frame frame) {
+  /** A context for evaluating at a cell, for an engine that hands subtrees to this one. */
+  public FunctionContext context(
+      Workspace workspace, int sheet, int column, int row, boolean arrayMode) {
+    return new Frame(workspace, sheet, column, row, arrayMode, 0);
+  }
+
+  /** Evaluates part of a formula in a context from {@link #context}, without finishing it. */
+  public Value evaluateSubtree(Expr expr, FunctionContext context) {
+    return eval(expr, (Frame) context);
+  }
+
+  /** Reduces a formula's result to what a cell holds. */
+  public static Value finish(Value result, FunctionContext frame) {
     Value scalar = Coercion.intersect(result, frame);
     return scalar instanceof Value.Blank ? new Value.Num(0) : scalar;
   }
 
-  private static Value finishArray(Value result) {
+  /** Reduces an array formula's result to what its cells hold. */
+  public static Value finishArray(Value result) {
     if (!(result instanceof Value.Grid grid)) {
       return result instanceof Value.Blank ? new Value.Num(0) : result;
     }

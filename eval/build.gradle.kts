@@ -10,6 +10,7 @@ dependencies {
     implementation(project(":cellerity-graph"))
     implementation(project(":cellerity-interp"))
     implementation(project(":cellerity-report"))
+    implementation(project(":cellerity-truffle"))
     // Independent check of the reader only (ADR-0011). Never used by a published module.
     implementation(libs.poi.ooxml)
 }
@@ -40,6 +41,15 @@ tasks.register<JavaExec>("recalc") {
     workingDir = rootDir
     maxHeapSize = providers.gradleProperty("fidelityHeap").getOrElse("2g")
     args(providers.gradleProperty("recalcArgs").orNull?.split(" ") ?: emptyList<String>())
+}
+
+// Compares the Truffle engine with the interpreter, on every corpus workbook.
+tasks.register<JavaExec>("differential") {
+    classpath = sourceSets["main"].runtimeClasspath
+    mainClass = "${project.group}.cellerity.eval.Differential"
+    workingDir = rootDir
+    maxHeapSize = providers.gradleProperty("fidelityHeap").getOrElse("2g")
+    args(providers.gradleProperty("differentialArgs").orNull?.split(" ") ?: emptyList<String>())
 }
 
 // Compares what our reader stores with what Apache POI reads from the same files.

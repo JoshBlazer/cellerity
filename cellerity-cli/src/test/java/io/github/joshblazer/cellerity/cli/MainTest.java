@@ -49,7 +49,7 @@ class MainTest {
         "coveramount|50000",
         "AnnualRate|0.035",
       })
-  void getPrintsTheCachedValue(String ref, String expected) {
+  void getPrintsTheCalculatedValue(String ref, String expected) {
     Result r = run("eval", SAMPLE, "--get", ref);
     assertEquals(0, r.exit(), r.err());
     assertEquals(expected + "\n", r.out());
@@ -70,11 +70,33 @@ class MainTest {
   }
 
   @Test
-  void setIsUnsupportedUntilTheEvaluatorExists() {
-    Result r = run("eval", SAMPLE, "--set", "CoverAmount=1", "--get", "Sheet1!B2");
-    assertEquals(1, r.exit());
-    assertEquals("", r.out());
-    assertTrue(r.err().contains("M2"), r.err());
+  void setRecalculatesWhatDependsOnIt() {
+    Result r = run("eval", SAMPLE, "--set", "CoverAmount=1000", "--get", "Sheet1!B2");
+    assertEquals(0, r.exit(), r.err());
+    assertEquals("35\n", r.out());
+  }
+
+  @Test
+  void setNeedsAValue() {
+    assertEquals(2, run("eval", SAMPLE, "--set", "CoverAmount", "--get", "Sheet1!B2").exit());
+  }
+
+  @Test
+  void verifyReportsFidelityWithCoverage() throws java.io.IOException {
+    java.nio.file.Path report = java.nio.file.Files.createTempFile("cellerity", ".html");
+    Result r = run("verify", SAMPLE, "--report", report.toString());
+    assertTrue(r.exit() <= 1, r.err());
+    assertTrue(r.out().contains("fidelity "), r.out());
+    assertTrue(r.out().contains("coverage "), r.out());
+    assertTrue(java.nio.file.Files.readString(report).startsWith("<!DOCTYPE html>"));
+    java.nio.file.Files.delete(report);
+  }
+
+  @Test
+  void coverageCountsFunctionCalls() {
+    Result r = run("coverage", SAMPLE);
+    assertTrue(r.exit() <= 1, r.err());
+    assertTrue(r.out().contains("function coverage "), r.out());
   }
 
   @ParameterizedTest
@@ -117,7 +139,7 @@ class MainTest {
   }
 
   @ParameterizedTest
-  @CsvSource({"verify,M2", "coverage,M2", "bench,M4", "api,M5"})
+  @CsvSource({"bench,M4", "api,M5"})
   void plannedCommandsSayWhenTheyArrive(String command, String milestone) {
     Result r = run(command, SAMPLE);
     assertEquals(2, r.exit());

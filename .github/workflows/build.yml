@@ -33,3 +33,9 @@ jobs:
         run: |
           ./gradlew :cellerity-cli:installDist
           test "$(cellerity-cli/build/install/cellerity/bin/cellerity eval corpus/samples/synthetic/sample.xlsx --get 'Sheet1!A1' | tr -d '\r')" = "42"
+      - name: M2 exit check
+        shell: bash
+        run: |
+          cellerity-cli/build/install/cellerity/bin/cellerity verify corpus/samples/poi/VLookupFullColumn.xlsx --report verify-report.html
+          grep -q "Fidelity 100.0000%" verify-report.html
+          test "$(cellerity-cli/build/install/cellerity/bin/cellerity eval corpus/samples/synthetic/sample.xlsx --set CoverAmount=1000 --get 'Sheet1!B2' | tr -d '\r')" = "35"

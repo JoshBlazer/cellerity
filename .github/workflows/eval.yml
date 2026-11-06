@@ -46,4 +46,5 @@ jobs:
           name: fidelity
           path: |
             eval/results/latest-fidelity-*.json
+            eval/results/latest-report-*.html
             eval/results/latest-detail-poi.tsv

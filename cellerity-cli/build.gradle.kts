@@ -6,6 +6,9 @@ plugins {
 dependencies {
     implementation(project(":cellerity-core"))
     implementation(project(":cellerity-io"))
+    implementation(project(":cellerity-formula"))
+    implementation(project(":cellerity-interp"))
+    implementation(project(":cellerity-report"))
 }
 
 application {

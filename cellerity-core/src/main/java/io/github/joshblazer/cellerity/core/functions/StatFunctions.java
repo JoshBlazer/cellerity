@@ -288,16 +288,38 @@ final class StatFunctions {
         2,
         2,
         (a, c) -> {
-          double[][] xy = pairs(a[0], a[1]);
-          if (xy[0].length == 0) {
-            throw error(ExcelError.DIV0);
+          Value.Grid x = gridOrSingle(a[0]);
+          Value.Grid y = gridOrSingle(a[1]);
+          int count = x.rows() * x.columns();
+          if (count != y.rows() * y.columns()) {
+            throw error(ExcelError.NA);
           }
+          // The shapes may differ: elements pair up in reading order.
           double sum = 0;
-          for (int i = 0; i < xy[0].length; i++) {
-            sum += term.applyAsDouble(xy[0][i], xy[1][i]);
+          int pairs = 0;
+          for (int i = 0; i < count; i++) {
+            Value p = x.get(i / x.columns(), i % x.columns());
+            Value q = y.get(i / y.columns(), i % y.columns());
+            if (p instanceof Value.Err e) {
+              throw error(e.error());
+            }
+            if (q instanceof Value.Err e) {
+              throw error(e.error());
+            }
+            if (p instanceof Value.Num m && q instanceof Value.Num o) {
+              sum += term.applyAsDouble(m.value(), o.value());
+              pairs++;
+            }
+          }
+          if (pairs == 0) {
+            throw error(ExcelError.DIV0);
           }
           return num(sum);
         });
+  }
+
+  private static Value.Grid gridOrSingle(Value value) {
+    return value instanceof Value.Grid g ? g : new ArrayGrid(1, 1, new Value[] {value});
   }
 
   /** Treats the argument at index 1 as the only criterion. */

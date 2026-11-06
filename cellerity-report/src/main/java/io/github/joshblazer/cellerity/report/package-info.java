@@ -1,2 +1,2 @@
-/** Static HTML reports. Placeholder: implemented from milestone M2. */
+/** Static, offline HTML reports. */
 package io.github.joshblazer.cellerity.report;

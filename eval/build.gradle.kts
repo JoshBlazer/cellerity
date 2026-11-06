@@ -8,6 +8,7 @@ dependencies {
     implementation(project(":cellerity-io"))
     implementation(project(":cellerity-formula"))
     implementation(project(":cellerity-interp"))
+    implementation(project(":cellerity-report"))
     // Independent check of the reader only (ADR-0011). Never used by a published module.
     implementation(libs.poi.ooxml)
 }

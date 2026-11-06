@@ -24,10 +24,10 @@ eval: corpus
 fidelity: fidelity-enron fidelity-poi
 
 fidelity-enron: corpus
-	./gradlew :cellerity-eval:fidelity -PfidelityHeap=$(FIDELITY_HEAP) -PfidelityArgs="--corpus corpus/downloads/enron-nuix --out eval/results/latest-fidelity-enron.json"
+	./gradlew :cellerity-eval:fidelity -PfidelityHeap=$(FIDELITY_HEAP) -PfidelityArgs="--corpus corpus/downloads/enron-nuix --out eval/results/latest-fidelity-enron.json --report eval/results/latest-report-enron.html --baseline eval/baseline-fidelity-enron.properties"
 
 fidelity-poi: corpus
-	./gradlew :cellerity-eval:fidelity -PfidelityHeap=$(FIDELITY_HEAP) -PfidelityArgs="--corpus corpus/downloads/poi --corpus corpus/samples --out eval/results/latest-fidelity-poi.json --detail eval/results/latest-detail-poi.tsv"
+	./gradlew :cellerity-eval:fidelity -PfidelityHeap=$(FIDELITY_HEAP) -PfidelityArgs="--corpus corpus/downloads/poi --corpus corpus/samples --out eval/results/latest-fidelity-poi.json --report eval/results/latest-report-poi.html --detail eval/results/latest-detail-poi.tsv --baseline eval/baseline-fidelity-poi.properties"
 
 # Compares our reader with Apache POI, then proves the corpus was not modified by doing so.
 crosscheck: corpus

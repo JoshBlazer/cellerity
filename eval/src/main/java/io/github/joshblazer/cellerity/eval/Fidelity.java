@@ -8,6 +8,7 @@ import io.github.joshblazer.cellerity.interp.Verifier;
 import io.github.joshblazer.cellerity.interp.VerifyResult;
 import io.github.joshblazer.cellerity.io.Workbook;
 import io.github.joshblazer.cellerity.io.XlsxReadException;
+import io.github.joshblazer.cellerity.report.FidelityReport;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
@@ -52,12 +53,14 @@ public final class Fidelity {
     Path out = null;
     Path detail = null;
     Path baseline = null;
+    Path report = null;
     for (int i = 0; i + 1 < args.length; i += 2) {
       switch (args[i]) {
         case "--corpus" -> roots.add(Path.of(args[i + 1]));
         case "--out" -> out = Path.of(args[i + 1]);
         case "--detail" -> detail = Path.of(args[i + 1]);
         case "--baseline" -> baseline = Path.of(args[i + 1]);
+        case "--report" -> report = Path.of(args[i + 1]);
         default -> {
           System.err.println("Unknown argument: " + args[i]);
           System.exit(2);
@@ -66,7 +69,7 @@ public final class Fidelity {
     }
     if (roots.isEmpty() || out == null) {
       System.err.println(
-          "usage: Fidelity --corpus DIR --out FILE [--detail FILE] [--baseline FILE]");
+          "usage: Fidelity --corpus DIR --out FILE [--detail FILE] [--baseline FILE] [--report FILE]");
       System.exit(2);
     }
     Map<String, VerifyResult> byWriter = new TreeMap<>();
@@ -157,6 +160,10 @@ public final class Fidelity {
     }
     Files.writeString(
         out, json(files, skipped, timedOut, crashes, perFile, excel, byWriter, coverage));
+    if (report != null) {
+      Files.writeString(
+          report, FidelityReport.html("Fidelity: " + report.getFileName(), excel, coverage, false));
+    }
     print("Excel-labeled (headline)", excel);
     byWriter.forEach((writer, result) -> {
       if (!writer.equals("Excel")) {
@@ -277,7 +284,7 @@ public final class Fidelity {
         .collect(Collectors.joining(", ", "{", "}"));
   }
 
-  private static boolean checkBaseline(Path file, VerifyResult excel, Coverage coverage)
+  static boolean checkBaseline(Path file, VerifyResult excel, Coverage coverage)
       throws IOException {
     Properties floors = new Properties();
     try (var reader = Files.newBufferedReader(file)) {

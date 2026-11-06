@@ -1,7 +1,15 @@
 package io.github.joshblazer.cellerity.cli;
 
 import io.github.joshblazer.cellerity.core.CellRef;
+import io.github.joshblazer.cellerity.core.Coercion;
 import io.github.joshblazer.cellerity.core.Value;
+import io.github.joshblazer.cellerity.formula.ParsedWorkbook;
+import io.github.joshblazer.cellerity.interp.Category;
+import io.github.joshblazer.cellerity.interp.Coverage;
+import io.github.joshblazer.cellerity.interp.Interpreter;
+import io.github.joshblazer.cellerity.interp.Verifier;
+import io.github.joshblazer.cellerity.interp.VerifyResult;
+import io.github.joshblazer.cellerity.interp.WorkbookEvaluator;
 import io.github.joshblazer.cellerity.io.Cell;
 import io.github.joshblazer.cellerity.io.DefinedName;
 import io.github.joshblazer.cellerity.io.Formula;
@@ -10,12 +18,16 @@ import io.github.joshblazer.cellerity.io.Workbook;
 import io.github.joshblazer.cellerity.io.WorkbookInfo;
 import io.github.joshblazer.cellerity.io.XlsxReadException;
 import io.github.joshblazer.cellerity.io.XlsxReader;
+import io.github.joshblazer.cellerity.report.FidelityReport;
+import java.io.IOException;
 import java.io.PrintStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.OptionalDouble;
 import java.util.OptionalInt;
 
 /** Entry point. Exit codes: 0 clean, 1 mismatches or unsupported features, 2 Cellerity error. */
@@ -28,19 +40,22 @@ public final class Main {
       """
       usage: cellerity <command> <workbook.xlsx> [options]
 
-        eval      <file> --get REF [--get REF ...]   print cached values (no recalculation until M2)
+        eval      <file> --get REF [--set REF=VALUE ...]   calculate values, after any changes
         inspect   <file>                             list sheets, names, cells, and formulas
-        verify    <file>                             planned for M2
-        coverage  <file>                             planned for M2
+        verify    <file> [--report FILE.html]        compare calculated values with Excel's
+        coverage  <file>                             share of function calls we implement
         bench     <file>                             planned for M4
         api       <file> --package NAME              planned for M5
 
       REF is Sheet!A1, 'My Sheet'!A1, or a defined name that refers to a single cell.
-      Exit codes: 0 clean, 1 unsupported feature, 2 error.
+      VALUE is a number, TRUE, FALSE, or text.
+      Exit codes: 0 clean, 1 mismatches or unsupported features, 2 error.
       """;
 
-  private static final Map<String, String> PLANNED =
-      Map.of("verify", "M2", "coverage", "M2", "bench", "M4", "api", "M5");
+  private static final Map<String, String> PLANNED = Map.of("bench", "M4", "api", "M5");
+
+  private static final int MISMATCHES_KEPT = 10_000;
+  private static final int MISMATCHES_PRINTED = 20;
 
   private final PrintStream out;
   private final PrintStream err;
@@ -78,6 +93,8 @@ public final class Main {
     return switch (command) {
       case "eval" -> eval(rest);
       case "inspect" -> inspect(rest);
+      case "verify" -> verify(rest);
+      case "coverage" -> coverage(rest);
       default -> {
         err.println("Unknown command: " + command);
         err.print(USAGE);
@@ -109,10 +126,145 @@ public final class Main {
       err.println("eval needs a workbook and at least one --get");
       return ERROR;
     }
-    if (!sets.isEmpty()) {
-      // Printing a cached value after a --set would be silently wrong (ADR-0010).
-      err.println("--set needs recalculation, which is planned for M2");
-      return UNSUPPORTED;
+    Workbook workbook;
+    try {
+      workbook = XlsxReader.read(Path.of(file));
+    } catch (XlsxReadException e) {
+      return readFailure(file, e);
+    }
+    // After a change, a saved NOW() or RAND() is stale, so volatile functions are calculated too.
+    WorkbookEvaluator evaluator =
+        new WorkbookEvaluator(
+            ParsedWorkbook.of(workbook),
+            new Interpreter(),
+            sets.isEmpty()
+                ? WorkbookEvaluator.VolatilePolicy.USE_CACHED
+                : WorkbookEvaluator.VolatilePolicy.CALCULATE);
+    for (String set : sets) {
+      int equals = set.indexOf('=');
+      if (equals <= 0) {
+        err.println("--set needs REF=VALUE: " + set);
+        return ERROR;
+      }
+      Target target = target(workbook, set.substring(0, equals));
+      if (target.exitCode() != OK) {
+        err.println(target.problem());
+        return target.exitCode();
+      }
+      evaluator.set(target.sheet(), target.cell(), parseInput(set.substring(equals + 1)));
+    }
+    boolean changed = !sets.isEmpty();
+    List<String> lines = new ArrayList<>();
+    for (String get : gets) {
+      Target target = target(workbook, get);
+      if (target.exitCode() != OK) {
+        err.println(target.problem());
+        return target.exitCode();
+      }
+      WorkbookEvaluator.Outcome outcome = evaluator.outcome(target.sheet(), target.cell());
+      if (isCachedInstead(outcome.status()) || (changed && outcome.usedCachedInput())) {
+        // A cached value here could be silently wrong, so it is refused rather than printed.
+        err.println(
+            "Cannot calculate "
+                + get
+                + (outcome.detail().isEmpty() ? "" : ": " + outcome.detail())
+                + (outcome.usedCachedInput() ? " (it rests on a cached value)" : ""));
+        return UNSUPPORTED;
+      }
+      String text = evalText(outcome.value());
+      lines.add(gets.size() == 1 ? text : get + "=" + text);
+    }
+    lines.forEach(out::println);
+    return OK;
+  }
+
+  private static boolean isCachedInstead(WorkbookEvaluator.Status status) {
+    return status == WorkbookEvaluator.Status.UNSUPPORTED_FEATURE
+        || status == WorkbookEvaluator.Status.UNSUPPORTED_FUNCTION;
+  }
+
+  /** As Excel shows a calculated value: numbers to 15 significant digits. */
+  private static String evalText(Value value) {
+    return value instanceof Value.Num ? Coercion.toText(value) : format(value);
+  }
+
+  private static Value parseInput(String text) {
+    if (text.equalsIgnoreCase("TRUE") || text.equalsIgnoreCase("FALSE")) {
+      return new Value.Bool(text.equalsIgnoreCase("TRUE"));
+    }
+    OptionalDouble number = Coercion.parseNumber(text);
+    return number.isPresent() ? new Value.Num(number.getAsDouble()) : new Value.Text(text);
+  }
+
+  private record Target(int exitCode, int sheet, CellRef cell, String problem) {
+    static Target found(int sheet, CellRef cell) {
+      return new Target(OK, sheet, cell, "");
+    }
+
+    static Target failed(int exitCode, String problem) {
+      return new Target(exitCode, -1, null, problem);
+    }
+  }
+
+  private static Target target(Workbook workbook, String ref) {
+    if (ref.contains("!")) {
+      return targetCell(workbook, ref, ref);
+    }
+    return workbook
+        .definedName(ref, OptionalInt.empty())
+        .map(DefinedName::refersTo)
+        .map(refersTo -> targetName(workbook, ref, refersTo))
+        .orElseGet(() -> Target.failed(ERROR, "Unknown defined name: " + ref));
+  }
+
+  private static Target targetName(Workbook workbook, String name, String refersTo) {
+    String stripped = refersTo.startsWith("=") ? refersTo.substring(1) : refersTo;
+    Target target = stripped.contains("!") ? targetCell(workbook, stripped, name) : null;
+    if (target == null || target.exitCode() != OK) {
+      return Target.failed(
+          UNSUPPORTED,
+          "Defined name " + name + " refers to " + refersTo + ", which is not a single cell");
+    }
+    return target;
+  }
+
+  private static Target targetCell(Workbook workbook, String ref, String label) {
+    int bang = ref.lastIndexOf('!');
+    String sheetName = unquoteSheet(ref.substring(0, bang));
+    int sheet = -1;
+    for (int i = 0; i < workbook.sheets().size(); i++) {
+      if (workbook.sheets().get(i).name().equalsIgnoreCase(sheetName)) {
+        sheet = i;
+        break;
+      }
+    }
+    if (sheet < 0) {
+      return Target.failed(ERROR, "No sheet named '" + sheetName + "' for " + label);
+    }
+    var cell = CellRef.parse(ref.substring(bang + 1));
+    if (cell.isEmpty()) {
+      return Target.failed(ERROR, "Not a single cell reference: " + label);
+    }
+    return Target.found(sheet, cell.get());
+  }
+
+  private int verify(List<String> args) {
+    String file = null;
+    String report = null;
+    for (int i = 0; i < args.size(); i++) {
+      String arg = args.get(i);
+      if (arg.equals("--report") && i + 1 < args.size()) {
+        report = args.get(++i);
+      } else if (file == null && !arg.startsWith("--")) {
+        file = arg;
+      } else {
+        err.println("Unexpected argument: " + arg);
+        return ERROR;
+      }
+    }
+    if (file == null) {
+      err.println("verify needs a workbook");
+      return ERROR;
     }
     Workbook workbook;
     try {
@@ -120,79 +272,82 @@ public final class Main {
     } catch (XlsxReadException e) {
       return readFailure(file, e);
     }
-    List<String> lines = new ArrayList<>();
-    for (String get : gets) {
-      Lookup lookup = lookup(workbook, get);
-      if (lookup.exitCode() != OK) {
-        err.println(lookup.problem());
-        return lookup.exitCode();
+    ParsedWorkbook parsed = ParsedWorkbook.of(workbook);
+    VerifyResult r = Verifier.verify(parsed, MISMATCHES_KEPT);
+    out.printf(
+        Locale.ROOT,
+        "fidelity %.4f%% of %d compared; coverage %.2f%% of %d formula cells%n"
+            + "exact %d, display-only %d, within tolerance %d, real mismatch %d%n"
+            + "unsupported function %d, unsupported feature %d, not comparable %d%n",
+        100 * r.fidelity(),
+        r.compared(),
+        100 * r.coverage(),
+        r.total(),
+        r.count(Category.EXACT),
+        r.count(Category.DISPLAY_ONLY),
+        r.count(Category.WITHIN_TOLERANCE),
+        r.count(Category.REAL_MISMATCH),
+        r.count(Category.UNSUPPORTED_FUNCTION),
+        r.count(Category.UNSUPPORTED_FEATURE),
+        r.count(Category.NOT_COMPARABLE));
+    r.unsupportedFunctions().forEach((name, n) -> out.println("function " + name + ": " + n));
+    r.unsupportedFeatures().forEach((name, n) -> out.println("feature " + name + ": " + n));
+    r.notComparable().forEach((why, n) -> out.println("not comparable, " + why + ": " + n));
+    r.mismatches().stream()
+        .limit(MISMATCHES_PRINTED)
+        .forEach(m ->
+            out.println(
+                singleLine(
+                    m.sheet()
+                        + "!"
+                        + m.cell()
+                        + " Excel "
+                        + m.expected()
+                        + ", Cellerity "
+                        + m.actual()
+                        + (m.root() ? "" : " (downstream)")
+                        + ": ="
+                        + m.formula())));
+    if (report != null) {
+      Coverage coverage = new Coverage();
+      coverage.add(parsed);
+      try {
+        Files.writeString(
+            Path.of(report),
+            FidelityReport.html("Fidelity: " + Path.of(file).getFileName(), r, coverage, true));
+      } catch (IOException e) {
+        err.println("Cannot write " + report + ": " + e.getMessage());
+        return ERROR;
       }
-      lines.add(gets.size() == 1 ? lookup.text() : get + "=" + lookup.text());
     }
-    lines.forEach(out::println);
-    return OK;
+    boolean clean =
+        r.count(Category.REAL_MISMATCH) == 0
+            && r.count(Category.UNSUPPORTED_FUNCTION) == 0
+            && r.count(Category.UNSUPPORTED_FEATURE) == 0;
+    return clean ? OK : UNSUPPORTED;
   }
 
-  private record Lookup(int exitCode, String text, String problem) {
-    static Lookup found(String text) {
-      return new Lookup(OK, text, "");
+  private int coverage(List<String> args) {
+    if (args.size() != 1) {
+      err.println("coverage needs exactly one workbook");
+      return ERROR;
     }
-
-    static Lookup failed(int exitCode, String problem) {
-      return new Lookup(exitCode, "", problem);
+    Workbook workbook;
+    try {
+      workbook = XlsxReader.read(Path.of(args.get(0)));
+    } catch (XlsxReadException e) {
+      return readFailure(args.get(0), e);
     }
-  }
-
-  private static Lookup lookup(Workbook workbook, String ref) {
-    if (ref.contains("!")) {
-      return lookupCell(workbook, ref, ref);
-    }
-    return workbook
-        .definedName(ref, OptionalInt.empty())
-        .map(DefinedName::refersTo)
-        .map(target -> lookupName(workbook, ref, target))
-        .orElseGet(() -> Lookup.failed(ERROR, "Unknown defined name: " + ref));
-  }
-
-  private static Lookup lookupName(Workbook workbook, String name, String target) {
-    String stripped = target.startsWith("=") ? target.substring(1) : target;
-    Lookup lookup = stripped.contains("!") ? lookupCell(workbook, stripped, name) : null;
-    if (lookup == null || lookup.exitCode() != OK) {
-      return Lookup.failed(
-          UNSUPPORTED,
-          "Defined name "
-              + name
-              + " refers to "
-              + target
-              + ", which is not a single cell; evaluating it is planned for M2");
-    }
-    return lookup;
-  }
-
-  private static Lookup lookupCell(Workbook workbook, String ref, String label) {
-    int bang = ref.lastIndexOf('!');
-    String sheetName = unquoteSheet(ref.substring(0, bang));
-    var sheet = workbook.sheet(sheetName);
-    if (sheet.isEmpty()) {
-      return Lookup.failed(ERROR, "No sheet named '" + sheetName + "' for " + label);
-    }
-    var cellRef = CellRef.parse(ref.substring(bang + 1));
-    if (cellRef.isEmpty()) {
-      return Lookup.failed(ERROR, "Not a single cell reference: " + label);
-    }
-    var cell = sheet.get().cell(cellRef.get());
-    if (cell.isEmpty()) {
-      return Lookup.found("");
-    }
-    return cell.get()
-        .value()
-        .map(value -> Lookup.found(format(value)))
-        .orElseGet(() ->
-            Lookup.failed(
-                UNSUPPORTED,
-                "Cell "
-                    + label
-                    + " has a formula but no cached value; evaluating it is planned for M2"));
+    Coverage coverage = new Coverage();
+    coverage.add(ParsedWorkbook.of(workbook));
+    out.printf(
+        Locale.ROOT,
+        "function coverage %.2f%%: %d of %d calls%n",
+        100 * coverage.rate(),
+        coverage.supportedCalls(),
+        coverage.totalCalls());
+    coverage.missing().forEach((name, n) -> out.println("missing " + name + ": " + n));
+    return coverage.missing().isEmpty() ? OK : UNSUPPORTED;
   }
 
   private static String unquoteSheet(String name) {

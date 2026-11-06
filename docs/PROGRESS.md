@@ -94,6 +94,7 @@ M2: reference interpreter and fidelity harness.
 - Reference interpreter and function library. CLI `verify`, `coverage`, `eval --set`. Static report.
 - Enron: 99.9739% of 340,722 compared, coverage 48.21% of 706,765 (CI run 42241323335). POI: 96.4393%, coverage 84.97%.
 - `make fidelity` gates each corpus against `eval/baseline-fidelity-*.properties`.
+- CI green on `64768f6`: `build` run 42241919507 (Ubuntu 21 and 25, Windows 25) and `eval` run 42241919496.
 
 Limits are in `docs/walkthroughs/m2.md`.
 

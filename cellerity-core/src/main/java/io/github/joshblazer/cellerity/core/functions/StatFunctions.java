@@ -4,7 +4,10 @@ import static io.github.joshblazer.cellerity.core.functions.Args.error;
 import static io.github.joshblazer.cellerity.core.functions.Args.n;
 import static io.github.joshblazer.cellerity.core.functions.Args.num;
 
+import io.github.joshblazer.cellerity.core.ArrayGrid;
+import io.github.joshblazer.cellerity.core.Coercion;
 import io.github.joshblazer.cellerity.core.ExcelError;
+import io.github.joshblazer.cellerity.core.FunctionContext;
 import io.github.joshblazer.cellerity.core.RangeValue;
 import io.github.joshblazer.cellerity.core.Value;
 import java.util.ArrayList;
@@ -12,6 +15,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.DoubleBinaryOperator;
 import java.util.function.Predicate;
 
 final class StatFunctions {
@@ -60,6 +64,15 @@ final class StatFunctions {
         1,
         255,
         (a, c) -> {
+          for (Value arg : a) {
+            Value single =
+                arg instanceof Value.Grid g && g.rows() == 1 && g.columns() == 1
+                    ? g.get(0, 0)
+                    : arg;
+            if (single instanceof Value.Text) {
+              throw error(ExcelError.VALUE);
+            }
+          }
           Map<Double, Integer> counts = new LinkedHashMap<>();
           for (double x : Args.numberArray(a)) {
             counts.merge(x + 0.0, 1, Integer::sum);
@@ -183,46 +196,152 @@ final class StatFunctions {
           return num(normalInverse(p));
         });
     r.raw("SUBTOTAL", 2, 255, (a, c) -> subtotal(a));
-    r.raw("COUNTIF", 2, 2, (a, c) -> num(countIfs(a)));
-    r.raw("COUNTIFS", 2, 254, (a, c) -> num(countIfs(a)));
+    r.raw("COUNTIF", 2, 2, (a, c) -> forCriteria(a, 1, c, (x, d) -> num(countIfs(x))));
+    r.raw("COUNTIFS", 2, 254, (a, c) -> forCriteria(a, 1, c, (x, d) -> num(countIfs(x))));
+    r.raw(
+        "DEVSQ",
+        1,
+        255,
+        (a, c) -> {
+          double[] v = Args.numberArray(a);
+          if (v.length == 0) {
+            throw error(ExcelError.NUM);
+          }
+          return num(sxx(v));
+        });
+    r.raw(
+        "AVEDEV",
+        1,
+        255,
+        (a, c) -> {
+          double[] v = Args.numberArray(a);
+          if (v.length == 0) {
+            throw error(ExcelError.NUM);
+          }
+          double m = mean(v);
+          return num(Arrays.stream(v).map(x -> Math.abs(x - m)).sum() / v.length);
+        });
+    pairSum(r, "SUMX2MY2", (x, y) -> x * x - y * y);
+    pairSum(r, "SUMX2PY2", (x, y) -> x * x + y * y);
+    pairSum(r, "SUMXMY2", (x, y) -> (x - y) * (x - y));
     r.raw(
         "SUMIF",
         2,
         3,
-        (a, c) -> {
-          Value.Grid criteriaRange = grid(a[0]);
-          Value.Grid sumRange =
-              a.length > 2 && !(a[2] instanceof Value.Blank)
-                  ? resized(a[2], criteriaRange)
-                  : criteriaRange;
-          List<Double> matched = matching(sumRange, new Value[] {criteriaRange, a[1]});
-          return num(matched.stream().mapToDouble(Double::doubleValue).sum());
-        });
+        (args, context) ->
+            oneCriterion(
+                args,
+                context,
+                (a, c) -> {
+                  Value.Grid criteriaRange = grid(a[0]);
+                  Value.Grid sumRange =
+                      a.length > 2 && !(a[2] instanceof Value.Blank)
+                          ? resized(a[2], criteriaRange)
+                          : criteriaRange;
+                  List<Double> matched = matching(sumRange, new Value[] {criteriaRange, a[1]});
+                  return num(matched.stream().mapToDouble(Double::doubleValue).sum());
+                }));
     r.raw(
         "SUMIFS",
         3,
         255,
-        (a, c) -> {
-          List<Double> matched = matching(grid(a[0]), Arrays.copyOfRange(a, 1, a.length));
-          return num(matched.stream().mapToDouble(Double::doubleValue).sum());
-        });
+        (args, context) ->
+            forCriteria(
+                args,
+                2,
+                context,
+                (a, c) -> {
+                  List<Double> matched = matching(grid(a[0]), Arrays.copyOfRange(a, 1, a.length));
+                  return num(matched.stream().mapToDouble(Double::doubleValue).sum());
+                }));
     r.raw(
         "AVERAGEIF",
         2,
         3,
-        (a, c) -> {
-          Value.Grid criteriaRange = grid(a[0]);
-          Value.Grid avgRange =
-              a.length > 2 && !(a[2] instanceof Value.Blank)
-                  ? resized(a[2], criteriaRange)
-                  : criteriaRange;
-          return num(meanOf(matching(avgRange, new Value[] {criteriaRange, a[1]})));
-        });
+        (args, context) ->
+            oneCriterion(
+                args,
+                context,
+                (a, c) -> {
+                  Value.Grid criteriaRange = grid(a[0]);
+                  Value.Grid avgRange =
+                      a.length > 2 && !(a[2] instanceof Value.Blank)
+                          ? resized(a[2], criteriaRange)
+                          : criteriaRange;
+                  return num(meanOf(matching(avgRange, new Value[] {criteriaRange, a[1]})));
+                }));
     r.raw(
         "AVERAGEIFS",
         3,
         255,
-        (a, c) -> num(meanOf(matching(grid(a[0]), Arrays.copyOfRange(a, 1, a.length)))));
+        (args, context) ->
+            forCriteria(
+                args,
+                2,
+                context,
+                (a, c) -> num(meanOf(matching(grid(a[0]), Arrays.copyOfRange(a, 1, a.length))))));
+  }
+
+  private static void pairSum(Registry r, String name, DoubleBinaryOperator term) {
+    r.array(
+        name,
+        2,
+        2,
+        (a, c) -> {
+          double[][] xy = pairs(a[0], a[1]);
+          if (xy[0].length == 0) {
+            throw error(ExcelError.DIV0);
+          }
+          double sum = 0;
+          for (int i = 0; i < xy[0].length; i++) {
+            sum += term.applyAsDouble(xy[0][i], xy[1][i]);
+          }
+          return num(sum);
+        });
+  }
+
+  /** Treats the argument at index 1 as the only criterion. */
+  private static Value oneCriterion(Value[] args, FunctionContext context, FunctionDef.Body body) {
+    Value[] a = args.clone();
+    if (a[1] instanceof RangeValue && !context.arrayMode()) {
+      a[1] = Coercion.intersect(a[1], context);
+    } else if (a[1] instanceof Value.Grid g) {
+      return eachCriterion(a, 1, g, context, (x, c) -> oneCriterion(x, c, body));
+    }
+    return body.apply(a, context);
+  }
+
+  /**
+   * Prepares criteria at every second index from {@code first}. A range intersects with the cell,
+   * as any single value does. An array constant, or any array in an array formula, gives one result
+   * for each element.
+   */
+  private static Value forCriteria(
+      Value[] args, int first, FunctionContext context, FunctionDef.Body body) {
+    Value[] a = args.clone();
+    for (int i = first; i < a.length; i += 2) {
+      if (a[i] instanceof RangeValue && !context.arrayMode()) {
+        a[i] = Coercion.intersect(a[i], context);
+      } else if (a[i] instanceof Value.Grid g) {
+        return eachCriterion(a, i, g, context, (x, c) -> forCriteria(x, first, c, body));
+      }
+    }
+    return body.apply(a, context);
+  }
+
+  private static Value eachCriterion(
+      Value[] a, int index, Value.Grid criteria, FunctionContext context, FunctionDef.Body next) {
+    int rows = criteria.usedRows();
+    int columns = criteria.usedColumns();
+    Value[] results = new Value[rows * columns];
+    for (int r = 0; r < rows; r++) {
+      for (int cl = 0; cl < columns; cl++) {
+        Value[] one = a.clone();
+        one[index] = criteria.get(r, cl);
+        results[r * columns + cl] = next.apply(one, context);
+      }
+    }
+    return new ArrayGrid(rows, columns, results);
   }
 
   private static double meanOf(List<Double> values) {
@@ -408,7 +527,7 @@ final class StatFunctions {
 
   private static double variance(double[] v, int lost) {
     if (v.length <= lost) {
-      throw error(lost == 0 ? ExcelError.NUM : ExcelError.DIV0);
+      throw error(ExcelError.DIV0);
     }
     return sxx(v) / (v.length - lost);
   }

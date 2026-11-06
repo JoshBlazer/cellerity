@@ -30,8 +30,14 @@ final class MathFunctions {
         255,
         (a, c) -> {
           double[] product = {1};
-          Args.numbers(a, x -> product[0] *= x);
-          return num(product[0]);
+          int[] count = {0};
+          Args.numbers(
+              a,
+              x -> {
+                product[0] *= x;
+                count[0]++;
+              });
+          return num(count[0] == 0 ? 0 : product[0]);
         });
     r.raw(
         "SUMSQ",
@@ -64,7 +70,7 @@ final class MathFunctions {
           if (base == 10) {
             return num(log10(n(a, 0)));
           }
-          if (base <= 0) {
+          if (base <= 0 || n(a, 0) <= 0) {
             throw error(ExcelError.NUM);
           }
           double divisor = Math.log(base);
@@ -97,6 +103,29 @@ final class MathFunctions {
           return num(round(n(a, 0) / n(a, 1), 0, RoundingMode.DOWN));
         });
     r.scalar("PI", 0, 0, (a, c) -> num(Math.PI));
+    unary(r, "ASINH", x -> Math.log(x + Math.sqrt(x * x + 1)));
+    unary(r, "ACOSH", x -> Math.log(x + Math.sqrt(x * x - 1)));
+    unary(
+        r,
+        "ATANH",
+        x -> {
+          if (Math.abs(x) >= 1) {
+            throw error(ExcelError.NUM);
+          }
+          return 0.5 * Math.log((1 + x) / (1 - x));
+        });
+    r.scalar(
+        "HEX2DEC",
+        1,
+        1,
+        (a, c) -> {
+          String hex = Args.s(a, 0);
+          if (!hex.matches("[0-9A-Fa-f]{1,10}")) {
+            throw error(ExcelError.NUM);
+          }
+          long value = Long.parseLong(hex, 16);
+          return num((double) (value >= 1L << 39 ? value - (1L << 40) : value));
+        });
     r.scalar("RADIANS", 1, 1, (a, c) -> num(n(a, 0) * Math.PI / 180));
     r.scalar("DEGREES", 1, 1, (a, c) -> num(n(a, 0) * 180 / Math.PI));
     unary(r, "SIN", Math::sin);
@@ -260,12 +289,16 @@ final class MathFunctions {
     if (places > 300 || places < -300) {
       return places > 0 ? value : 0;
     }
-    return new BigDecimal(Double.toString(value)).setScale(places, mode).doubleValue();
+    BigDecimal exact =
+        mode == RoundingMode.HALF_UP
+            ? new BigDecimal(value).round(new java.math.MathContext(15, RoundingMode.HALF_EVEN))
+            : new BigDecimal(Double.toString(value));
+    return exact.setScale(places, mode).doubleValue();
   }
 
   private static double toMultiple(double x, double multiple, boolean up) {
     if (multiple == 0) {
-      if (up) {
+      if (up || x == 0) {
         return 0;
       }
       throw error(ExcelError.DIV0);

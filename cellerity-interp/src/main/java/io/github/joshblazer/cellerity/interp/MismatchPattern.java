@@ -74,8 +74,11 @@ final class MismatchPattern {
   }
 
   private static String numberGap(double expected, double actual) {
-    if (expected == 0 || actual == 0) {
-      return "one is zero";
+    if (expected == 0) {
+      return "expected zero";
+    }
+    if (actual == 0) {
+      return "calculated zero";
     }
     if (Math.signum(expected) != Math.signum(actual)) {
       return "opposite signs";

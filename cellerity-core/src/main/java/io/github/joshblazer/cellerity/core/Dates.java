@@ -67,8 +67,13 @@ public final class Dates {
     if (year < floorYear || year > 9999) {
       throw new FunctionError(ExcelError.NUM);
     }
-    if (system == DateSystem.SYSTEM_1900 && year == 1900 && month == 2 && day == 29) {
-      return FICTITIOUS_LEAP_DAY;
+    // Excel counts days on from a 1900 month, so its fictitious Feb 29 shifts later dates too.
+    if (system == DateSystem.SYSTEM_1900 && year == 1900 && (month == 1 || month == 2)) {
+      long counted = (month == 1 ? 1 : 32) + day - 1;
+      if (counted < 0 || counted > maxSerial(system)) {
+        throw new FunctionError(ExcelError.NUM);
+      }
+      return counted;
     }
     long months = year * 12 + (month - 1);
     long y = Math.floorDiv(months, 12);

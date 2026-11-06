@@ -44,12 +44,12 @@ final class LogicFunctions {
               case Value.Err e -> e;
               default -> num(0);
             });
-    r.scalar(
+    r.raw(
         "T",
         1,
         1,
         (a, c) ->
-            switch (a[0]) {
+            switch (Coercion.first(a[0])) {
               case Value.Text t -> t;
               case Value.Err e -> e;
               default -> Args.text("");

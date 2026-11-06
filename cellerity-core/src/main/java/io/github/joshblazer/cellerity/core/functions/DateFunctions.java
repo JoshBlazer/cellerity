@@ -25,8 +25,8 @@ final class DateFunctions {
     r.scalar("YEAR", 1, 1, (a, c) -> num(ymd(a, c).year()));
     r.scalar("MONTH", 1, 1, (a, c) -> num(ymd(a, c).month()));
     r.scalar("DAY", 1, 1, (a, c) -> num(ymd(a, c).day()));
-    r.scalar("HOUR", 1, 1, (a, c) -> num(secondOfDay(n(a, 0)) / 3600));
-    r.scalar("MINUTE", 1, 1, (a, c) -> num(secondOfDay(n(a, 0)) / 60 % 60));
+    r.scalar("HOUR", 1, 1, (a, c) -> num(Math.floor(secondOfDay(n(a, 0)) / 3600)));
+    r.scalar("MINUTE", 1, 1, (a, c) -> num(Math.floor(secondOfDay(n(a, 0)) / 60) % 60));
     r.scalar("SECOND", 1, 1, (a, c) -> num(secondOfDay(n(a, 0)) % 60));
     r.scalar(
         "TIME",

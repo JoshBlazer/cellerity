@@ -126,6 +126,10 @@ public final class Verifier {
           "YIELDDISC",
           "YIELDMAT");
 
+  /** The accuracy Microsoft documents for each iterative function (ADR-0015). */
+  private static final Map<String, Double> SOLVER_ACCURACY =
+      Map.of("XIRR", 1e-8, "IRR", 1e-7, "RATE", 1e-7);
+
   private Verifier() {}
 
   /** Runs the check with the reference interpreter. */
@@ -306,7 +310,7 @@ public final class Verifier {
       addInCells.computeIfAbsent(sheetIndex, k -> new HashSet<>()).add(cell.ref());
       return;
     }
-    Category category = Comparison.compare(cell.value().get(), outcome.value());
+    Category category = compare(formula.expr(), cell.value().get(), outcome.value());
     if (category != Category.REAL_MISMATCH) {
       result.add(category);
     }
@@ -318,6 +322,14 @@ public final class Verifier {
           new Pending(
               sheetIndex, sheet, cell.ref(), formula.expr(), cell.value().get(), outcome.value()));
     }
+  }
+
+  private static Category compare(Expr expr, Value expected, Value actual) {
+    Double accuracy =
+        expr instanceof Expr.Call call ? SOLVER_ACCURACY.get(call.canonicalName()) : null;
+    return accuracy == null
+        ? Comparison.compare(expected, actual)
+        : Comparison.compareSolver(expected, actual, accuracy);
   }
 
   private static boolean callsAddIn(Expr expr) {

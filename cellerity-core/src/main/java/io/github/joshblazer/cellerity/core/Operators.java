@@ -4,7 +4,7 @@ import java.util.Locale;
 
 /** Excel's operators on scalars. They return error values rather than throw. */
 public final class Operators {
-  private static final double NEAR_ZERO = Math.scalb(1.0, -48);
+  private static final double NEAR_ZERO = Math.scalb(1.0, -50);
 
   private Operators() {}
 

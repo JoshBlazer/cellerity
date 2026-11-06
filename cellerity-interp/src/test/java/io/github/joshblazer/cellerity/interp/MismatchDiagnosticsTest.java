@@ -49,7 +49,7 @@ class MismatchDiagnosticsTest {
         "number vs number, opposite signs",
         MismatchPattern.difference(new Value.Num(-1), new Value.Num(1)));
     assertEquals(
-        "number vs number, one is zero",
+        "number vs number, expected zero",
         MismatchPattern.difference(new Value.Num(0), new Value.Num(1)));
     assertEquals(
         "text vs text, differ by case",
@@ -98,6 +98,28 @@ class MismatchDiagnosticsTest {
         result.notComparable());
     assertEquals(1, result.count(Category.REAL_MISMATCH));
     assertEquals("D1", result.mismatches().get(0).cell());
+  }
+
+  @Test
+  void aSolverAnswerIsJudgedByItsDocumentedAccuracy() {
+    Value a = new Value.Num(0.123456789);
+    assertEquals(
+        Category.WITHIN_TOLERANCE,
+        Comparison.compareSolver(a, new Value.Num(0.123456789 + 5e-9), 1e-8));
+    assertEquals(
+        Category.REAL_MISMATCH,
+        Comparison.compareSolver(a, new Value.Num(0.123456789 + 5e-8), 1e-8));
+    assertEquals(Category.REAL_MISMATCH, Comparison.compareSolver(a, new Value.Text("x"), 1e-8));
+    assertEquals(Category.REAL_MISMATCH, Comparison.compare(a, new Value.Num(0.123456789 + 5e-9)));
+  }
+
+  @Test
+  void valuesBelowTheNoiseFloorMatch() {
+    assertEquals(
+        Category.WITHIN_TOLERANCE,
+        Comparison.compare(new Value.Num(6.1257e-17), new Value.Num(6.1232e-17)));
+    assertEquals(
+        Category.REAL_MISMATCH, Comparison.compare(new Value.Num(1e-14), new Value.Num(3e-14)));
   }
 
   @Test

@@ -9,7 +9,8 @@ dependencies {
 
 // Evidence for ADR-0006: which runtime this JDK gives, and whether formulas compile.
 tasks.register<Sync>("probeLibs") {
-    from(sourceSets["main"].runtimeClasspath)
+    from(tasks.named("jar"))
+    from(configurations.runtimeClasspath)
     into(layout.buildDirectory.dir("probe/lib"))
 }
 

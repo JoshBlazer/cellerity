@@ -151,6 +151,27 @@ class IncrementalWorkbookTest {
   }
 
   @Test
+  void aChangeReachesAFormulaThroughARelativeName() {
+    Map<String, Object> cells = new LinkedHashMap<>();
+    cells.put("C1", "=NEXT+1");
+    cells.put("C2", 1.0);
+    var name =
+        new io.github.joshblazer.cellerity.io.DefinedName(
+            "NEXT", "A2", java.util.OptionalInt.empty(), false);
+    IncrementalWorkbook model =
+        new IncrementalWorkbook(
+            ParsedWorkbook.of(
+                TestBooks.workbook(List.of(TestBooks.sheet("Sheet1", cells)), List.of(name))),
+            new Interpreter(),
+            VolatilePolicy.USE_CACHED);
+    model.recalculate();
+    assertEquals(new Value.Num(2), model.value(0, ref("C1")));
+    model.set(0, ref("C2"), new Value.Num(10));
+    model.recalculate();
+    assertEquals(new Value.Num(11), model.value(0, ref("C1")));
+  }
+
+  @Test
   void volatileFunctionsRecalculateWhenCalculatingThem() {
     Map<String, Object> cells = new LinkedHashMap<>();
     cells.put("A1", 1.0);

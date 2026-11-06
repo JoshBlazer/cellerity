@@ -130,6 +130,17 @@ class DependencyGraphTest {
   }
 
   @Test
+  void aRelativeNameReadsRelativeToTheFormulaUsingIt() {
+    Expr next = FormulaParser.parse("A2").expr();
+    DependencyGraph g =
+        DependencyGraph.build(
+            book(sheet("S", Map.of("C1", "=NEXT", "C2", "1", "A2", "1"))),
+            (name, from) -> Optional.of(next));
+    assertEquals(List.of(key("C1")), g.dependents(key("C2")));
+    assertEquals(List.of(), g.dependents(key("A2")));
+  }
+
+  @Test
   void aChangeReachesEverythingDownstreamAndNothingElse() {
     DependencyGraph g =
         graph(Map.of("A1", "1", "B1", "=A1", "C1", "=B1", "D1", "=C1+B1", "E1", "=Z1"));

@@ -6,6 +6,7 @@ import io.github.joshblazer.cellerity.formula.Expr;
 import io.github.joshblazer.cellerity.formula.Exprs;
 import io.github.joshblazer.cellerity.formula.ParsedFormula;
 import io.github.joshblazer.cellerity.formula.ParsedWorkbook;
+import io.github.joshblazer.cellerity.formula.ReferenceShifter;
 import io.github.joshblazer.cellerity.io.Sheet;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -137,9 +138,17 @@ public final class DependencyGraph {
       case Expr.Name name -> {
         int from = target(name.scope(), fromSheet).orElse(fromSheet);
         if (namesSeen.add(from + "!" + lower(name.name()))) {
+          // A name's relative references are relative to the formula using it, as in the
+          // interpreter.
           names
               .resolve(name.name(), from)
-              .ifPresent(body -> read(body, from, reader, names, namesSeen));
+              .ifPresent(body ->
+                  read(
+                      ReferenceShifter.shift(body, reader.at().column() - 1, reader.at().row() - 1),
+                      from,
+                      reader,
+                      names,
+                      namesSeen));
         }
       }
       case Expr.Call call -> {

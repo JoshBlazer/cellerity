@@ -47,7 +47,7 @@ Read from the AST without evaluating:
 | Expression | Precedent |
 |---|---|
 | Cell, area, whole row or column | Those cells, on the sheet named or the formula's own |
-| Defined name | Whatever its expression reads, recursively, with a guard against names that loop |
+| Defined name | Whatever its expression reads, recursively, shifted by the formula's position as relative names are, with a guard against names that loop |
 | Member of an array range | The array's master |
 | External, 3D, or broken reference | None. The formula is unsupported, or an error regardless of inputs |
 

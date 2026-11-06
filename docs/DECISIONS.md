@@ -111,7 +111,7 @@ adoption is not otherwise affected.
 
 ## ADR-0006: Truffle runtime and JDK strategy
 
-**Status:** Accepted for planning. To be re-verified at M4, including on the then-current versions.
+**Status:** Accepted. Re-verified at M4, with the results below.
 
 **Context.** The brief requires recording which JDKs get optimized Truffle execution, and a correct
 path on stock OpenJDK.
@@ -148,8 +148,13 @@ The `truffle-api` 25.0.5 classes are major version 61 (Java 17), so they load on
 **Consequences.** The tagline's "JIT-compiled" is true only on a GraalVM JDK. All public claims must
 say so, and benchmark pages must name the JDK. See `docs/RISKS.md`.
 
-**Open at M4.** Choosing the Truffle version (25.0.x and newer lines both exist on Central, and the
-version must be compatible with the GraalVM CE JDK in use), and class path versus module path.
+**Settled at M4 (measured 2026-11-06, `TruffleProbe` in the `bench` workflow).**
+- Truffle 25.0.5 with GraalVM CE 25.0.2 reports the runtime `GraalVM CE`, and formulas compile at Tier 1 and Tier 2.
+- This works on the class path and on the module path, so the class path stays, for simplicity.
+- `new RootNode(null)` compiles, so no `TruffleLanguage` or polyglot `Context` is needed.
+- On Temurin the runtime is `Interpreted`.
+- **Default on stock JDKs (item 2):** the reference interpreter. It is also the default on GraalVM CE for now, since Truffle
+  showed no speed benefit there (`docs/benchmarks/README.md`). Truffle is chosen with `--engine truffle`.
 
 ---
 
@@ -366,4 +371,27 @@ available to test directly, so this threshold fits this corpus and could be wron
 - `make recalc` compares with a full recalculation on every corpus workbook, and fails on any disagreement.
 
 **Why.** A wrong "not affected" is a silent wrong answer, and recalculating too much is only slow.
+
+---
+
+## ADR-0018: Truffle engine with hand-written nodes, shared by formula shape
+
+**Status:** Accepted (M4). Design: `docs/design/truffle.md`.
+
+**New runtime dependencies.** `org.graalvm.truffle:truffle-api` and `truffle-runtime` 25.0.5, used by `cellerity-truffle` and `cellerity-cli`, with
+what they bring in. All of these are under the Universal Permissive License 1.0, compatible with Apache-2.0, per their POMs on Maven Central. They are
+free, and require no Oracle GraalVM.
+
+**Benchmark-only dependencies.** JMH 1.37, as the brief requires, and POI's evaluator in `cellerity-bench`, purely as the thing compared with. That module
+is never published. Constraint 4 still holds for all published code: formula evaluation is entirely Cellerity's. The module also compiles without `-Werror`,
+because JMH's generated code does not meet those rules.
+
+**Decisions.**
+- **Hand-written specialization, not the Truffle DSL.** There is one real specialization, on two numbers. A processor would add build risk with `-Werror` and
+  Error Prone for little gain. Revisit if nodes grow.
+- **A subtree with no node goes to the interpreter.** That keeps semantics in one place. 0.19% of corpus nodes do this.
+- **Formulas of one R1C1 shape share a call target.** Per-cell targets would rarely get hot.
+- **`cellerity-truffle` depends on `cellerity-interp`,** for `FormulaEngine` and delegation.
+
+**Measured consequence.** The JIT gave no speed benefit on the one benchmarked model. This is reported as it stands, in the README and benchmark page.
 

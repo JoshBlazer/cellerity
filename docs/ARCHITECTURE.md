@@ -22,11 +22,11 @@ The rest describes the plan and will change as milestones land.
 | `cellerity-formula` | Lexer, parser, printer, reference shifting, shared-formula expansion | core, io | Done for M1 |
 | `cellerity-interp` | Plain tree-walking reference interpreter, the oracle; workbook evaluator and verifier | core, formula, io, graph | M2 |
 | `cellerity-graph` | Precedents and dependents, topological evaluation, dirty marking, cycles, volatile functions | core, formula | M3 |
-| `cellerity-truffle` | Truffle nodes with type specialization; must match the interpreter | core, formula | M4 |
+| `cellerity-truffle` | Truffle nodes with type specialization; must match the interpreter | core, formula, interp | M4 |
 | `cellerity-api` | Runtime API and typed API generation | io, interp, graph | M5 |
 | `cellerity-cli` | Command line | io, core (more later) | `eval` and `inspect` for M0 |
 | `cellerity-report` | Static HTML reports, offline | interp | M2 |
-| `cellerity-bench` | JMH benchmarks versus Apache POI | api | M4 |
+| `cellerity-bench` | JMH benchmarks versus Apache POI, never published | interp, truffle | M4 |
 | `cellerity-eval` (`eval/`) | Corpus harness and results history; not published | io, core, POI read-only (ADR-0011) | Load check and POI cross-check for M0 |
 
 Dependencies point one way, and no module depends on a CLI or report module. Module dependencies will

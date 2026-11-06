@@ -42,6 +42,7 @@ jobs:
       - run: make -k fidelity FIDELITY_HEAP=8g
       - name: Incremental recalculation agrees with a full one
         run: make recalc FIDELITY_HEAP=8g
+      # On Temurin, without a JIT. The bench workflow repeats this on GraalVM CE.
       - name: Truffle agrees with the interpreter
         run: make differential FIDELITY_HEAP=8g
       - uses: actions/upload-artifact@v7

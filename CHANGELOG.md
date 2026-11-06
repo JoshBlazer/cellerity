@@ -24,10 +24,13 @@ Format based on [Keep a Changelog](https://keepachangelog.com/). No version has 
 
 - Dependency graph and incremental recalculation, with cycle detection, reported by `cellerity verify`, and `make recalc`.
 
+- Truffle engine, selected with `cellerity verify --engine truffle`, and `make differential` over the corpus.
+- JMH benchmarks against Apache POI, with `make bench`, and a published benchmark page. The JIT showed no speed benefit.
+
 ### Fixed
 
 - Every cell in a cycle is now marked as a cycle, wherever evaluation starts.
 
 ### Not yet implemented
 
-`bench` and `api`.
+The `cellerity bench` command, and `api`.

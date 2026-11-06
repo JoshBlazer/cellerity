@@ -4,15 +4,16 @@
 
 > **Status: early development.** Cellerity calculates workbooks with a reference interpreter and measures the
 > result against the values Excel stored. On the Enron corpus, fidelity is 99.97% of the **48.21%** of formula cells it
-> could compare ([what that means](docs/walkthroughs/m2.md)). It recalculates incrementally. There is no JIT runtime
-> yet, there are no releases, and no speed has been measured.
+> could compare ([what that means](docs/walkthroughs/m2.md)). It recalculates incrementally. Formulas compile on a GraalVM
+> JDK, but **the JIT has shown no speed benefit so far**: the plain interpreter is as fast on the
+> [one benchmarked model](docs/benchmarks/README.md). There are no releases.
 
 Banks, insurers, and pricing teams run critical logic in Excel, and engineers need those models inside
 Java systems. Cellerity's goal is to compile a workbook's formulas into a GraalVM Truffle runtime, with
 fidelity to Excel measured and published rather than assumed.
 
-JIT compilation will require a GraalVM JDK. On stock OpenJDK, Truffle runs interpreted, which is correct
-but slower ([ADR-0006](docs/DECISIONS.md)).
+JIT compilation requires a GraalVM JDK. On stock OpenJDK, Truffle runs without a JIT, and gives the same answers
+([ADR-0006](docs/DECISIONS.md)).
 
 ## Status
 
@@ -21,7 +22,7 @@ with Java 25, and runs the corpus checks on Ubuntu with Java 25.
 
 | Capability | State | Proving command |
 |---|---|---|
-| Build, formatting, static analysis, tests (261) on Java 21 and 25 | Proven | `./gradlew clean build` |
+| Build, formatting, static analysis, tests (1,501) on Java 21 and 25 | Proven | `./gradlew clean build` |
 | Group ID in a single build property | Proven | `git grep -n "io.github.joshblazer" -- "*.kts" "*.toml" "*.properties"` |
 | Read sheets, cells, formulas, cached values, defined names | Proven | `cellerity inspect corpus/samples/synthetic/sample.xlsx` |
 | Print a cached value (**M0 exit check**) | Proven | `cellerity eval corpus/samples/synthetic/sample.xlsx --get 'Sheet1!A1'` |
@@ -45,7 +46,11 @@ with Java 25, and runs the corpus checks on Ubuntu with Java 25.
 | Incremental equals full recalculation on the corpus | 0 disagreements in 2,533,277 cell comparisons, after 1,099 changes | `make recalc`; `eval/results/2026-11-06-m3-recalc.json` |
 | Cycles detected and reported (**M3 exit check**) | Proven | `./gradlew :cellerity-cli:test --tests '*CycleReportTest'` |
 | **M3 complete** | **Done, pending maintainer review** | `docs/walkthroughs/m3.md` |
-| Truffle runtime, benchmarks (M4) | Not started | |
+| Truffle equals the interpreter on the whole corpus (**M4 exit check**) | 0 disagreements in 860,666 formula cells, on Temurin and on GraalVM CE, with 3,677 compilations on the latter | `make differential`; `bench` workflow; `eval/results/2026-11-06-m4-differential-graalvm.json` |
+| Formulas compile on GraalVM CE | Proven: Tier 1 and Tier 2, 0 failures | `bench` workflow, `TruffleProbe` |
+| JMH against Apache POI, with methodology and hardware (**M4 exit check**) | One synthetic model, shared CI runner, labeled noisy: about 4x POI on full recalculation, and about 26x on one changed input | `make bench`; `docs/benchmarks/README.md` |
+| JIT speed benefit | **Not shown.** Truffle on GraalVM CE is no faster than the interpreter on that model | `docs/benchmarks/README.md` |
+| **M4 complete** | **Done, pending maintainer review** | `docs/walkthroughs/m4.md` |
 | Typed API generation (M5) | Not started | |
 | Public fidelity and benchmark pages (M6) | Not started | |
 
@@ -57,6 +62,9 @@ with Java 25, and runs the corpus checks on Ubuntu with Java 25.
 - **Not implemented:** 3D, union, and structured references, data tables, and some functions and `TEXT` formats. These
   are reported as unsupported, or give `#VALUE!`, instead of being guessed.
 - **`.xlsx` and `.xlsm` only.** Legacy `.xls`, encrypted files, and `.xlsb` are rejected.
+- **No JIT speedup yet, and one benchmark model.** The lead over POI comes from the evaluator, not the JIT. It was measured on one synthetic model, on a noisy shared
+  machine, so it does not predict your workbook. See [the benchmarks](docs/benchmarks/README.md).
+- **`cellerity bench` is not implemented.** `make bench` runs the benchmarks on a generated model.
 - **Two corpora mean different things.** POI's test data is mostly bug reproductions and fuzzer output, not real-world
   usage. The cleaned Enron subset is real-world but small, old, and `.xls` ([ADR-0013](docs/DECISIONS.md)).
 - **Some files are strictly rejected.** A file POI can read may be rejected here if a value would have to
@@ -75,6 +83,7 @@ alias cellerity=cellerity-cli/build/install/cellerity/bin/cellerity
 cellerity eval corpus/samples/synthetic/sample.xlsx --get 'Sheet1!A1'     # 42
 cellerity eval corpus/samples/synthetic/sample.xlsx --set CoverAmount=1000 --get 'Sheet1!B2'     # 35
 cellerity verify corpus/samples/poi/shared_formulas.xlsx --report report.html
+cellerity verify corpus/samples/poi/shared_formulas.xlsx --engine truffle
 cellerity coverage corpus/samples/poi/shared_formulas.xlsx
 cellerity inspect corpus/samples/poi/shared_formulas.xlsx
 ```
@@ -86,6 +95,8 @@ Corpus checks need `make` and network access for the first download:
 ```
 make eval
 make fidelity
+make recalc
+make differential
 make crosscheck
 ```
 

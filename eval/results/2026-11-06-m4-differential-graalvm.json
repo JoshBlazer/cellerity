@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "date": "2026-11-06",
+  "truffleRuntime": "GraalVM CE",
+  "javaVm": "OpenJDK 64-Bit Server VM 25.0.2",
+  "files": 784,
+  "timedOut": 0,
+  "crashed": 0,
+  "cellsCompared": 860666,
+  "disagreements": 0,
+  "shapes": 19711,
+  "nodes": 88090,
+  "delegatedNodes": 170
+}

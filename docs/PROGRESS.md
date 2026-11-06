@@ -128,3 +128,30 @@ M3: dependency graph and incremental recalculation.
 
 M4: Truffle runtime and benchmarks.
 
+## 2026-11-06: M4
+
+### Done and proven
+
+- Truffle engine. `make differential`: 0 disagreements in 860,666 formula cells, on Temurin and on GraalVM CE (3,677 compilations, 0 failures).
+- JMH against POI, published in `docs/benchmarks/README.md`, from CI runs on a shared runner: `bench` 42251602885, `eval` 42251602610 on `02b8ab3`.
+- M1 to M4, as the maintainer asked.
+
+### Finding
+
+The JIT gave no measured speed benefit over the interpreter on the one model benchmarked. The lead over POI comes from the evaluator design. This is stated in the README.
+
+### Open questions for the maintainer
+
+- The tagline says "JIT-compiled", which is accurate about the runtime, but it suggests a speed benefit that has not been measured. Keep it, or change it?
+- Is further JIT work worthwhile before M5? It would start with a profile, then compiling across cell reads and unboxing numbers.
+- Benchmarks on a quiet machine would replace the noisy numbers. This machine has too little free memory to do that today.
+
+### Limits worth remembering
+
+- `cellerity bench` is not implemented. M5 and M6 were not requested.
+- Memory here is short, so corpus jobs and benchmarks run on CI.
+
+### Next
+
+Wait for review. M5 is not started.
+

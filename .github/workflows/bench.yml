@@ -1,9 +1,8 @@
 name: bench
 
+# Run by hand: this is slow, and a shared runner is too noisy to gate on.
 on:
   workflow_dispatch:
-  push:
-    branches: ["milestone/**"]
 
 permissions:
   contents: read

@@ -134,6 +134,90 @@ class TruffleDifferentialTest {
     assertSame(cells, "B1", "C2", "D1", "D3", "E2");
   }
 
+  /** Each column has one shape down its rows, so nodes built at row 1 run everywhere. */
+  private static Map<String, Object> sameShapesInManyRows() {
+    Map<String, Object> cells = new LinkedHashMap<>();
+    for (int i = 1; i <= 40; i++) {
+      cells.put("A" + i, (double) i);
+    }
+    for (int i = 1; i <= 40; i++) {
+      cells.put("B" + i, "=A" + i + "*$A$2+A$3");
+      cells.put("C" + i, "=SUM($A$1:A" + i + ")");
+      cells.put("D" + i, "=SUM(A:A)+ROW()+SUM(" + i + ":" + i + ")");
+      cells.put("E" + i, "=IF(A" + i + ">20,B" + i + ",C" + i + ")");
+      cells.put("F" + i, "=SUM(IF({1,0}>0,A" + i + ",B" + i + "))");
+      cells.put("G" + i, "=SUM(A" + i + ":$A$40 A$1:A" + i + ")");
+      cells.put("H" + i, "=IFERROR(A" + i + "/0,B" + i + ")");
+      cells.put("I" + i, "=RELATIVE+A" + i);
+      cells.put("J" + i, "=-A" + i + "%&\"x\"");
+    }
+    return cells;
+  }
+
+  private static List<io.github.joshblazer.cellerity.io.DefinedName> relativeName() {
+    return List.of(
+        new io.github.joshblazer.cellerity.io.DefinedName(
+            "RELATIVE", "A1", java.util.OptionalInt.empty(), false));
+  }
+
+  @Test
+  void aShapeAgreesAtEveryCellItRunsAt() {
+    Map<String, Object> cells = sameShapesInManyRows();
+    ParsedWorkbook book =
+        ParsedWorkbook.of(
+            TestBooks.workbook(List.of(TestBooks.sheet("Sheet1", cells)), relativeName()));
+    TruffleEngine engine = new TruffleEngine();
+    WorkbookEvaluator interpreter = new WorkbookEvaluator(book);
+    WorkbookEvaluator truffle =
+        new WorkbookEvaluator(book, engine, WorkbookEvaluator.VolatilePolicy.USE_CACHED);
+    for (String cell : cells.keySet()) {
+      assertEquals(interpreter.outcome(0, ref(cell)), truffle.outcome(0, ref(cell)), cell);
+    }
+    // Nine columns of one shape, except the ranges that depend on the row in two directions.
+    assertTrue(engine.shapes() <= 12, "shapes: " + engine.shapes());
+  }
+
+  @Test
+  void aShapeAgreesOnEverySheetItRunsOn() {
+    Map<String, Object> one = new LinkedHashMap<>();
+    one.put("A1", 1.0);
+    one.put("B1", "=A1*2");
+    Map<String, Object> two = new LinkedHashMap<>();
+    two.put("A1", 5.0);
+    two.put("B1", "=A1*2");
+    ParsedWorkbook book =
+        ParsedWorkbook.of(
+            TestBooks.workbook(
+                List.of(TestBooks.sheet("One", one), TestBooks.sheet("Two", two)), List.of()));
+    TruffleEngine engine = new TruffleEngine();
+    WorkbookEvaluator truffle =
+        new WorkbookEvaluator(book, engine, WorkbookEvaluator.VolatilePolicy.USE_CACHED);
+    assertEquals(new Value.Num(2), truffle.value(0, ref("B1")));
+    assertEquals(new Value.Num(10), truffle.value(1, ref("B1")));
+    assertEquals(1, engine.shapes());
+  }
+
+  @Test
+  void formulasThatLookAlikeButReadDifferentCellsDoNotShare() {
+    Map<String, Object> cells = new LinkedHashMap<>();
+    cells.put("A1", 1.0);
+    cells.put("B1", "=A1*2"); // one column to the left
+    cells.put("C1", "=A1*2"); // two columns to the left
+    cells.put("D1", "=$A1*2");
+    cells.put("E1", "=$A1*2"); // the same shape as D1, since the column is fixed
+    cells.put("A2", 7.0);
+    cells.put("B2", "=A2*2"); // the same shape as B1
+    ParsedWorkbook book = ParsedWorkbook.of(TestBooks.workbook(cells));
+    TruffleEngine engine = new TruffleEngine();
+    WorkbookEvaluator truffle =
+        new WorkbookEvaluator(book, engine, WorkbookEvaluator.VolatilePolicy.USE_CACHED);
+    for (String cell : List.of("B1", "C1", "D1", "E1", "B2")) {
+      truffle.value(0, ref(cell));
+    }
+    assertEquals(new Value.Num(14), truffle.value(0, ref("B2")));
+    assertEquals(3, engine.shapes());
+  }
+
   @Test
   void onlyAFinalAddOrSubtractSnapsToZero() {
     Map<String, Object> cells = new LinkedHashMap<>();

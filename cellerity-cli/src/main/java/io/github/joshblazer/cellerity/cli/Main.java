@@ -21,6 +21,7 @@ import io.github.joshblazer.cellerity.io.WorkbookInfo;
 import io.github.joshblazer.cellerity.io.XlsxReadException;
 import io.github.joshblazer.cellerity.io.XlsxReader;
 import io.github.joshblazer.cellerity.report.FidelityReport;
+import io.github.joshblazer.cellerity.truffle.TruffleEngine;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.file.Files;
@@ -45,9 +46,10 @@ public final class Main {
 
         eval      <file> --get REF [--set REF=VALUE ...]   calculate values, after any changes
         inspect   <file>                             list sheets, names, cells, and formulas
-        verify    <file> [--report FILE.html]        compare calculated values with Excel's
+        verify    <file> [--report FILE.html] [--engine interpreter|truffle]
+                                                     compare calculated values with Excel's
         coverage  <file>                             share of function calls we implement
-        bench     <file>                             planned for M4
+        bench     <file>                             not yet: use make bench, on a generated model
         api       <file> --package NAME              planned for M5
 
       REF is Sheet!A1, 'My Sheet'!A1, or a defined name that refers to a single cell.
@@ -55,7 +57,8 @@ public final class Main {
       Exit codes: 0 clean, 1 mismatches or unsupported features, 2 error.
       """;
 
-  private static final Map<String, String> PLANNED = Map.of("bench", "M4", "api", "M5");
+  private static final Map<String, String> PLANNED =
+      Map.of("bench", "a later milestone; make bench runs the benchmarks", "api", "M5");
 
   private static final int MISMATCHES_KEPT = 10_000;
   private static final int MISMATCHES_PRINTED = 20;
@@ -254,10 +257,13 @@ public final class Main {
   private int verify(List<String> args) {
     String file = null;
     String report = null;
+    String engine = "interpreter";
     for (int i = 0; i < args.size(); i++) {
       String arg = args.get(i);
       if (arg.equals("--report") && i + 1 < args.size()) {
         report = args.get(++i);
+      } else if (arg.equals("--engine") && i + 1 < args.size()) {
+        engine = args.get(++i);
       } else if (file == null && !arg.startsWith("--")) {
         file = arg;
       } else {
@@ -275,8 +281,23 @@ public final class Main {
     } catch (XlsxReadException e) {
       return readFailure(file, e);
     }
+    if (!engine.equals("interpreter") && !engine.equals("truffle")) {
+      err.println("Unknown engine: " + engine);
+      return ERROR;
+    }
     ParsedWorkbook parsed = ParsedWorkbook.of(workbook);
-    VerifyResult r = Verifier.verify(parsed, MISMATCHES_KEPT);
+    // The interpreter stays the default. Truffle only compiles on a GraalVM JDK (ADR-0006).
+    VerifyResult r =
+        engine.equals("truffle")
+            ? Verifier.verify(
+                parsed,
+                new WorkbookEvaluator(
+                    parsed, new TruffleEngine(), WorkbookEvaluator.VolatilePolicy.USE_CACHED),
+                MISMATCHES_KEPT)
+            : Verifier.verify(parsed, MISMATCHES_KEPT);
+    if (engine.equals("truffle")) {
+      out.println("engine: truffle, runtime " + TruffleEngine.runtimeName());
+    }
     out.printf(
         Locale.ROOT,
         "fidelity %.4f%% of %d compared; coverage %.2f%% of %d formula cells%n"

@@ -19,6 +19,7 @@ import io.github.joshblazer.cellerity.core.Value;
 import io.github.joshblazer.cellerity.core.functions.FunctionDef;
 import io.github.joshblazer.cellerity.core.functions.Functions;
 import io.github.joshblazer.cellerity.formula.Expr;
+import io.github.joshblazer.cellerity.formula.ReferenceShifter;
 import io.github.joshblazer.cellerity.interp.Interpreter;
 
 /** The nodes of a formula. See {@code docs/design/truffle.md}. */
@@ -49,16 +50,23 @@ final class Nodes {
     }
   }
 
-  /** Hands a subtree to the interpreter, for what has no node of its own. */
+  /**
+   * Hands a subtree to the interpreter, for what has no node of its own. A shape can run at many
+   * cells, so the subtree is first moved from the cell it was built for to the one running it.
+   */
   static final class Delegate extends FormulaNode {
     private final Expr expr;
     private final Interpreter interpreter;
     private final boolean array;
+    private final int builtColumn;
+    private final int builtRow;
 
-    Delegate(Expr expr, Interpreter interpreter, boolean array) {
+    Delegate(Expr expr, Interpreter interpreter, boolean array, int builtColumn, int builtRow) {
       this.expr = expr;
       this.interpreter = interpreter;
       this.array = array;
+      this.builtColumn = builtColumn;
+      this.builtRow = builtRow;
     }
 
     @Override
@@ -68,24 +76,34 @@ final class Nodes {
 
     @TruffleBoundary
     private Value run(FunctionContext context) {
-      return interpreter.evaluateSubtree(expr, context);
+      int columns = context.column() - builtColumn;
+      int rows = context.row() - builtRow;
+      Expr here = columns == 0 && rows == 0 ? expr : ReferenceShifter.shift(expr, columns, rows);
+      return interpreter.evaluateSubtree(here, context);
+    }
+  }
+
+  /** One corner of a reference: fixed, or at a distance from the cell running the formula. */
+  record Corner(int column, boolean columnFixed, int row, boolean rowFixed) {
+    int column(FunctionContext context) {
+      return columnFixed ? column : context.column() + column;
+    }
+
+    int row(FunctionContext context) {
+      return rowFixed ? row : context.row() + row;
     }
   }
 
   /** A cell or area kept as a reference. A negative sheet means the formula's own. */
   static final class Reference extends FormulaNode {
     private final int sheet;
-    private final int firstColumn;
-    private final int firstRow;
-    private final int lastColumn;
-    private final int lastRow;
+    private final Corner from;
+    private final Corner to;
 
-    Reference(int sheet, int firstColumn, int firstRow, int lastColumn, int lastRow) {
+    Reference(int sheet, Corner from, Corner to) {
       this.sheet = sheet;
-      this.firstColumn = firstColumn;
-      this.firstRow = firstRow;
-      this.lastColumn = lastColumn;
-      this.lastRow = lastRow;
+      this.from = from;
+      this.to = to;
     }
 
     @Override
@@ -98,23 +116,21 @@ final class Nodes {
       return new RangeValue(
           context.source(),
           sheet < 0 ? context.sheet() : sheet,
-          firstColumn,
-          firstRow,
-          lastColumn,
-          lastRow);
+          from.column(context),
+          from.row(context),
+          to.column(context),
+          to.row(context));
     }
   }
 
   /** One cell read as a value, where an operator wants one outside an array formula. */
   static final class ScalarCell extends FormulaNode {
     private final int sheet;
-    private final int column;
-    private final int row;
+    private final Corner at;
 
-    ScalarCell(int sheet, int column, int row) {
+    ScalarCell(int sheet, Corner at) {
       this.sheet = sheet;
-      this.column = column;
-      this.row = row;
+      this.at = at;
     }
 
     @Override
@@ -125,7 +141,9 @@ final class Nodes {
     /** A boundary, as reading may evaluate other formulas. */
     @TruffleBoundary
     private Value read(FunctionContext context) {
-      return context.source().cell(sheet < 0 ? context.sheet() : sheet, column, row);
+      return context
+          .source()
+          .cell(sheet < 0 ? context.sheet() : sheet, at.column(context), at.row(context));
     }
   }
 

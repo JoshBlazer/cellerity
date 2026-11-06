@@ -37,6 +37,7 @@ public final class Differential {
   private long disagreements;
   private long nodes;
   private long delegated;
+  private long shapes;
   private final TreeMap<String, Long> disagreementKinds = new TreeMap<>();
 
   private Differential() {}
@@ -86,7 +87,7 @@ public final class Differential {
         "differential on %s, %s %s%n"
             + "%d files, %d timed out, %d crashed%n"
             + "%d formula cells compared, %d disagreements %s%n"
-            + "%d nodes built, %d delegated to the interpreter (%.2f%%)%n",
+            + "%d shapes, %d nodes built, %d delegated to the interpreter (%.2f%%)%n",
         runtime,
         System.getProperty("java.vm.name"),
         System.getProperty("java.version"),
@@ -96,6 +97,7 @@ public final class Differential {
         check.cells,
         check.disagreements,
         check.disagreementKinds,
+        check.shapes,
         check.nodes,
         check.delegated,
         delegatedShare);
@@ -115,6 +117,7 @@ public final class Differential {
                 "crashed": %d,
                 "cellsCompared": %d,
                 "disagreements": %d,
+                "shapes": %d,
                 "nodes": %d,
                 "delegatedNodes": %d
               }
@@ -128,6 +131,7 @@ public final class Differential {
               check.crashed,
               check.cells,
               check.disagreements,
+              check.shapes,
               check.nodes,
               check.delegated));
     }
@@ -159,6 +163,7 @@ public final class Differential {
     }
     nodes += engine.nodes();
     delegated += engine.delegatedNodes();
+    shapes += engine.shapes();
   }
 
   private void compareCells(

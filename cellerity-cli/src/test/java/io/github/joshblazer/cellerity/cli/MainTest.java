@@ -93,6 +93,19 @@ class MainTest {
   }
 
   @Test
+  void verifyCanUseTheTruffleEngine() {
+    Result r = run("verify", SAMPLE, "--engine", "truffle");
+    assertEquals(run("verify", SAMPLE).exit(), r.exit(), r.err());
+    assertTrue(r.out().contains("engine: truffle, runtime "), r.out());
+    assertTrue(r.out().contains("fidelity 100.0000%"), r.out());
+  }
+
+  @Test
+  void anUnknownEngineIsAnError() {
+    assertEquals(2, run("verify", SAMPLE, "--engine", "nonsense").exit());
+  }
+
+  @Test
   void coverageCountsFunctionCalls() {
     Result r = run("coverage", SAMPLE);
     assertTrue(r.exit() <= 1, r.err());
@@ -139,7 +152,7 @@ class MainTest {
   }
 
   @ParameterizedTest
-  @CsvSource({"bench,M4", "api,M5"})
+  @CsvSource({"bench,make bench", "api,M5"})
   void plannedCommandsSayWhenTheyArrive(String command, String milestone) {
     Result r = run(command, SAMPLE);
     assertEquals(2, r.exit());

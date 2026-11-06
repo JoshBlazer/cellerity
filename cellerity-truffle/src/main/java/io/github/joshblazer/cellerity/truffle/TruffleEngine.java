@@ -7,6 +7,7 @@ import com.oracle.truffle.api.frame.FrameDescriptor;
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.RootNode;
 import io.github.joshblazer.cellerity.core.BinOp;
+import io.github.joshblazer.cellerity.core.CellRef;
 import io.github.joshblazer.cellerity.core.ExcelError;
 import io.github.joshblazer.cellerity.core.FunctionContext;
 import io.github.joshblazer.cellerity.core.Value;
@@ -17,6 +18,7 @@ import io.github.joshblazer.cellerity.interp.FormulaEngine;
 import io.github.joshblazer.cellerity.interp.Interpreter;
 import io.github.joshblazer.cellerity.interp.Workspace;
 import io.github.joshblazer.cellerity.truffle.Nodes.FormulaNode;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Optional;
@@ -28,25 +30,51 @@ import java.util.OptionalInt;
  */
 public final class TruffleEngine implements FormulaEngine {
   private final Interpreter interpreter = new Interpreter();
-  // One Expr can serve many cells, and comparing trees by value would be slow.
-  private final IdentityHashMap<Expr, CallTarget> scalarTargets = new IdentityHashMap<>();
-  private final IdentityHashMap<Expr, CallTarget> arrayTargets = new IdentityHashMap<>();
+
+  /** Targets by shape. Formulas of one shape, at any cell, share a target. */
+  private final HashMap<String, CallTarget> targets = new HashMap<>();
+
+  /** A shortcut past working out the shape. An Expr's shape depends on the cell it is read from. */
+  private final IdentityHashMap<Expr, HashMap<Long, CallTarget>> known = new IdentityHashMap<>();
+
+  private int builtColumn;
+  private int builtRow;
   private long nodes;
   private long delegated;
 
   @Override
   public Value evaluate(
       Expr expr, int sheet, int column, int row, boolean arrayFormula, Workspace workspace) {
-    IdentityHashMap<Expr, CallTarget> targets = arrayFormula ? arrayTargets : scalarTargets;
-    CallTarget target = targets.get(expr);
+    // Array formulas build different nodes, and an Expr is only ever one kind or the other.
+    long position = ((long) column << 32) | row;
+    HashMap<Long, CallTarget> forExpr = known.computeIfAbsent(expr, e -> new HashMap<>());
+    CallTarget target = forExpr.get(position);
     if (target == null) {
-      target = new FormulaRoot(root(expr, arrayFormula, workspace), arrayFormula).getCallTarget();
-      targets.put(expr, target);
+      target = target(expr, column, row, arrayFormula, workspace);
+      forExpr.put(position, target);
     }
     FunctionContext scalar = interpreter.context(workspace, sheet, column, row, arrayFormula);
     FunctionContext array =
         arrayFormula ? scalar : interpreter.context(workspace, sheet, column, row, true);
     return (Value) target.call(scalar, array);
+  }
+
+  private CallTarget target(
+      Expr expr, int column, int row, boolean arrayFormula, Workspace workspace) {
+    String shape = (arrayFormula ? "{" : "=") + FormulaShape.of(expr, column, row);
+    CallTarget target = targets.get(shape);
+    if (target == null) {
+      builtColumn = column;
+      builtRow = row;
+      target = new FormulaRoot(root(expr, arrayFormula, workspace), arrayFormula).getCallTarget();
+      targets.put(shape, target);
+    }
+    return target;
+  }
+
+  /** How many different shapes have been built, each one a call target. */
+  public long shapes() {
+    return targets.size();
   }
 
   /** How many nodes have been built. */
@@ -153,7 +181,7 @@ public final class TruffleEngine implements FormulaEngine {
   private FormulaNode delegate(Expr expr, boolean array) {
     nodes++;
     delegated++;
-    return new Nodes.Delegate(expr, interpreter, array);
+    return new Nodes.Delegate(expr, interpreter, array, builtColumn, builtRow);
   }
 
   private FormulaNode cell(Expr.Cell cell, boolean array, boolean wantsValue, Workspace workspace) {
@@ -165,11 +193,23 @@ public final class TruffleEngine implements FormulaEngine {
       return constant(new Value.Err(ExcelError.REF));
     }
     nodes++;
-    int column = cell.at().col();
-    int row = cell.at().row();
+    Nodes.Corner at = corner(cell.at(), 0, 0);
     return wantsValue
-        ? new Nodes.ScalarCell(sheet.getAsInt(), column, row)
-        : new Nodes.Reference(sheet.getAsInt(), column, row, column, row);
+        ? new Nodes.ScalarCell(sheet.getAsInt(), at)
+        : new Nodes.Reference(sheet.getAsInt(), at, at);
+  }
+
+  /** A corner as seen from the cell being built. Whole rows and columns stay fixed. */
+  private Nodes.Corner corner(Expr.Endpoint at, int wholeColumnsTo, int wholeRowsTo) {
+    boolean columnFixed = at.wholeRow() || at.colAbs();
+    boolean rowFixed = at.wholeColumn() || at.rowAbs();
+    int column = at.wholeRow() ? wholeColumnsTo : at.col();
+    int row = at.wholeColumn() ? wholeRowsTo : at.row();
+    return new Nodes.Corner(
+        columnFixed ? column : column - builtColumn,
+        columnFixed,
+        rowFixed ? row : row - builtRow,
+        rowFixed);
   }
 
   private FormulaNode area(Expr.Area area, boolean array, Workspace workspace) {
@@ -184,11 +224,7 @@ public final class TruffleEngine implements FormulaEngine {
     Expr.Endpoint from = area.from();
     Expr.Endpoint to = area.to();
     return new Nodes.Reference(
-        sheet.getAsInt(),
-        from.wholeRow() ? 1 : from.col(),
-        from.wholeColumn() ? 1 : from.row(),
-        to.wholeRow() ? io.github.joshblazer.cellerity.core.CellRef.MAX_COLUMN : to.col(),
-        to.wholeColumn() ? io.github.joshblazer.cellerity.core.CellRef.MAX_ROW : to.row());
+        sheet.getAsInt(), corner(from, 1, 1), corner(to, CellRef.MAX_COLUMN, CellRef.MAX_ROW));
   }
 
   /** The named sheet, -1 for the formula's own, or empty if there is no such sheet. */
@@ -258,7 +294,7 @@ public final class TruffleEngine implements FormulaEngine {
         args.size() > 1 ? branch(args.get(1), array, workspace) : constant(new Value.Bool(true));
     FormulaNode no =
         args.size() > 2 ? branch(args.get(2), array, workspace) : constant(new Value.Bool(false));
-    FormulaNode whole = new Nodes.Delegate(call, interpreter, array);
+    FormulaNode whole = new Nodes.Delegate(call, interpreter, array, builtColumn, builtRow);
     nodes++;
     return new Nodes.If(build(args.get(0), array, !array, workspace), yes, no, whole, array);
   }

@@ -9,12 +9,12 @@ permissions:
   contents: read
 
 jobs:
-  graalvm:
+  bench:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v7
-      # The build and tests use Temurin. GraalVM CE is the JDK that runs the result (ADR-0006).
+      # The build uses Temurin. GraalVM CE is the JDK that runs the result (ADR-0006).
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
@@ -25,30 +25,56 @@ jobs:
           distribution: graalvm-community
           java-version: "25"
           set-java-home: false
-      - run: ./gradlew :cellerity-truffle:probeLibs
-      - name: Probe on the class path
+      - name: Record the hardware and JDKs
+        shell: bash
+        run: |
+          mkdir -p eval/results
+          {
+            echo "date: $(date -u +%F)"
+            echo "runner: GitHub-hosted ubuntu-latest, a shared virtual machine"
+            grep -E "PRETTY_NAME" /etc/os-release
+            lscpu | grep -E "Model name|^CPU\(s\)|Thread|Core|Socket|MHz|Hypervisor"
+            free -g | grep Mem
+            echo "--- Temurin"; "$JAVA_HOME/bin/java" -version 2>&1
+            echo "--- GraalVM CE"; "$GRAALVM_HOME/bin/java" -version 2>&1
+          } | tee eval/results/latest-bench-environment.txt
+      - run: ./gradlew :cellerity-truffle:probeLibs :cellerity-eval:evalLibs
+      - name: Probe that formulas compile
         shell: bash
         run: |
           "$GRAALVM_HOME/bin/java" -Dpolyglot.engine.TraceCompilation=true \
             -cp 'cellerity-truffle/build/probe/lib/*' \
-            io.github.joshblazer.cellerity.truffle.TruffleProbe 2>&1 | tee probe-classpath.txt | grep -E "opt done|truffle runtime|java:|recalculations|WARNING|Error" | head -30
-      - name: Probe on the module path
+            io.github.joshblazer.cellerity.truffle.TruffleProbe 2>&1 | tee probe.txt | grep -E "truffle runtime|java:|recalculations"
+          echo "compilations: $(grep -c 'opt done' probe.txt), failures: $(grep -c 'opt fail' probe.txt)"
+          test "$(grep -c 'opt fail' probe.txt)" = "0"
+          test "$(grep -c 'opt done' probe.txt)" -gt 0
+          grep -q "truffle runtime: GraalVM CE" probe.txt
+      - run: make corpus
+      - name: Differential on GraalVM CE, with low thresholds so that compiled code runs
         shell: bash
         run: |
-          mkdir -p modules app
-          cp cellerity-truffle/build/probe/lib/*.jar app/
-          for jar in app/*.jar; do
-            case "$(basename "$jar")" in
-              truffle-*|polyglot-*|collections-*|word-*|nativeimage-*|jniutils-*|nativebridge-*|compiler-*) mv "$jar" modules/ ;;
-            esac
-          done
-          ls modules
-          "$GRAALVM_HOME/bin/java" -Dpolyglot.engine.TraceCompilation=true \
-            --module-path modules --add-modules org.graalvm.truffle,org.graalvm.truffle.runtime \
-            -cp 'app/*' \
-            io.github.joshblazer.cellerity.truffle.TruffleProbe 2>&1 | tee probe-modulepath.txt | grep -E "opt done|truffle runtime|java:|recalculations|WARNING|Error" | head -30
+          "$GRAALVM_HOME/bin/java" -Xmx8g \
+            -Dpolyglot.engine.AllowExperimentalOptions=true \
+            -Dpolyglot.engine.TraceCompilation=true \
+            -Dpolyglot.engine.BackgroundCompilation=false \
+            -Dpolyglot.engine.FirstTierCompilationThreshold=20 \
+            -Dpolyglot.engine.LastTierCompilationThreshold=100 \
+            -cp 'eval/build/eval/lib/*' \
+            io.github.joshblazer.cellerity.eval.Differential \
+            --corpus corpus/downloads/enron-nuix --corpus corpus/downloads/poi --corpus corpus/samples \
+            --min-cells 850000 --out eval/results/latest-differential-graalvm.json > differential.txt 2>&1
+          status=$?
+          grep -vE "^\[engine\]" differential.txt | tail -8
+          echo "compilations during the differential: $(grep -c 'opt done' differential.txt), failures: $(grep -c 'opt fail' differential.txt)"
+          exit $status
+      - name: JMH on GraalVM CE
+        run: make bench BENCH_JAVA="$GRAALVM_HOME/bin/java" BENCH_OUT=eval/results/latest-bench-graalvm.json
+      - name: JMH on Temurin
+        run: make bench BENCH_JAVA="$JAVA_HOME/bin/java" BENCH_OUT=eval/results/latest-bench-temurin.json
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: truffle-probe
-          path: probe-*.txt
+          name: bench
+          path: |
+            eval/results/latest-bench*
+            eval/results/latest-differential-graalvm.json

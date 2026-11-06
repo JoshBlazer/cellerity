@@ -20,8 +20,12 @@ public final class TruffleEngine implements FormulaEngine {
 }
 ```
 
-One engine belongs to one `WorkbookEvaluator`. The engine turns each `Expr` into a `CallTarget` on first use. The parser
-reuses one `Expr` for identical formula text, so nodes read position and home sheet from the frame, never at build time.
+One engine belongs to one `WorkbookEvaluator`.
+
+**Formulas of one shape share a `CallTarget`.** `=A1*2` in B1 and `=A2*2` in B2 are the same formula in Excel's R1C1 view.
+With a target per cell, each would run once per recalculation and rarely get hot, so the JIT would hardly engage. Instead,
+relative references are distances from the running cell, and nodes read position and home sheet from the frame. A subtree
+handed to the interpreter is first shifted from the cell it was built at to the one running it.
 
 | Node | Does |
 |---|---|

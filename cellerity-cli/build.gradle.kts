@@ -10,6 +10,7 @@ dependencies {
     implementation(project(":cellerity-graph"))
     implementation(project(":cellerity-interp"))
     implementation(project(":cellerity-report"))
+    implementation(project(":cellerity-truffle"))
 }
 
 application {

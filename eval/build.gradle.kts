@@ -52,6 +52,13 @@ tasks.register<JavaExec>("differential") {
     args(providers.gradleProperty("differentialArgs").orNull?.split(" ") ?: emptyList<String>())
 }
 
+// Everything needed to run on a JDK other than the build's, such as GraalVM CE.
+tasks.register<Sync>("evalLibs") {
+    from(tasks.named("jar"))
+    from(configurations.runtimeClasspath)
+    into(layout.buildDirectory.dir("eval/lib"))
+}
+
 // Compares what our reader stores with what Apache POI reads from the same files.
 tasks.register<JavaExec>("crossCheck") {
     classpath = sourceSets["main"].runtimeClasspath

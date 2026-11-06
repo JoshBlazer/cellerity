@@ -1,4 +1,4 @@
-.PHONY: build test format corpus eval fidelity fidelity-enron fidelity-poi recalc differential crosscheck dist
+.PHONY: build test format corpus eval fidelity fidelity-enron fidelity-poi recalc differential bench crosscheck dist
 
 FIDELITY_HEAP ?= 2g
 
@@ -37,6 +37,14 @@ recalc: corpus
 DIFFERENTIAL_OUT ?= eval/results/latest-differential.json
 differential: corpus
 	./gradlew :cellerity-eval:differential -PfidelityHeap=$(FIDELITY_HEAP) -PdifferentialArgs="--corpus corpus/downloads/enron-nuix --corpus corpus/downloads/poi --corpus corpus/samples --min-cells 850000 --out $(DIFFERENTIAL_OUT)"
+
+# JMH against Apache POI, on the JDK in JAVA_HOME or BENCH_JAVA. Methodology: docs/benchmarks/README.md.
+BENCH_JAVA ?= java
+BENCH_OUT ?= eval/results/latest-bench.json
+BENCH_FLAGS ?= -f 2 -wi 8 -w 5s -i 5 -r 5s
+bench:
+	./gradlew :cellerity-bench:benchLibs
+	$(BENCH_JAVA) -cp 'cellerity-bench/build/bench/lib/*' org.openjdk.jmh.Main RecalculationBenchmark $(BENCH_FLAGS) -jvmArgsAppend -Xmx4g -rf json -rff $(BENCH_OUT)
 
 # Compares our reader with Apache POI, then proves the corpus was not modified by doing so.
 crosscheck: corpus
